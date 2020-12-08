@@ -1,0 +1,53 @@
+HMDB_code	HMDB_name
+HMDB01051	Glyceraldehyde
+HMDB01882	Dihydroxyacetone
+HMDB00267	Pyroglutamic acid
+HMDB00805	Pyrrolidonecarboxylic acid
+HMDB60262	5-Oxoprolinate
+HMDB00190	L-Lactic acid
+HMDB00700	Hydroxypropionic acid
+HMDB00131	Glycerol
+HMDB00008	2-Hydroxybutyric acid
+HMDB59748	2-Methyl-3-hydroxypropanoate
+HMDB02031	Ureidoisobutyric acid
+HMDB00711	Hydroxyoctanoic acid
+HMDB01552	2-Keto-glutaramic acid
+HMDB00451	cis-4-Hydroxycyclohexylacetic acid
+HMDB10721	3-Oxooctanoic acid
+HMDB13010	N-Heptanoylglycine
+HMDB03148	Argininic acid
+HMDB00115	Glycolic acid
+HMDB00317	2-Hydroxy-3-methylpentanoic acid
+HMDB00746	Hydroxyisocaproic acid
+HMDB29166	2-Methyl-3-hydroxyvaleric acid
+HMDB00671	Indolelactic acid
+HMDB00119	Glyoxylic acid
+HMDB02203	3-Hydroxycapric acid
+HMDB13310	Tetracosanoylglycine
+HMDB02271	Imidazolepropionic acid
+HMDB00396	2-Ethylhydracrylic acid
+HMDB00754	3-Hydroxyisovaleric acid
+HMDB00139	Glyceric acid
+HMDB00491	3-Methyl-2-oxovaleric acid
+HMDB00622	Ethylmalonic acid
+HMDB00661	Glutaric acid
+HMDB00783	Propionylglycine
+HMDB00448	Adipic acid
+HMDB00752	Methylglutaric acid
+HMDB00691	Malonic acid
+HMDB00291	Vanillylmandelic acid
+HMDB00428	3-Hydroxyglutaric acid
+HMDB00202	Methylmalonic acid
+HMDB00254	Succinic acid
+HMDB00156	L-Malic acid
+HMDB00350	3-Hydroxysebacic acid
+HMDB00893	Suberic acid
+HMDB00792	Sebacic acid
+HMDB00208	Oxoglutaric acid
+HMDB59743	2-Hydroxyglutaric acid lactone
+HMDB00522	3-Methylglutaconic acid
+HMDB00355	3-Hydroxymethylglutaric acid
+HMDB00134	Fumaric acid
+HMDB00243	Pyruvic acid
+HMDB00118	Homovanillic acid
+HMDB00094	Citric acid

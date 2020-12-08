@@ -1,0 +1,45 @@
+HMDB_code	HMDB_name
+HMDB00062	vrij carnitine;Carnitine
+HMDB00201	C2-carnitine;Acetylcarnitine
+HMDB13124	C3:1-carnitine;Propenoylcarnitine
+HMDB00824	C3-carnitine;Propionylcarnitine
+HMDB00736	C4-carnitine;(Iso)butyryl-L-carnitine
+HMDB02366	C5:1-carnitine;Tiglylcarnitine
+HMDB00688	C5-carnitine;(Iso)valerylcarnitine
+HMDB13127	C4:3-OH-carnitine;3-Hydroxybutyrylcarnitine
+HMDB13161	C6:1-carnitine;Hexenoyl-L-carnitine 
+HMDB00756	C6-carnitine;Hexanoylcarnitine
+HMDB0061189	C5-OH-carnitine;3-Hydroxy isovalerylcarnitine
+HMDB13238	C7-carnitine;Heptanoylcarnitine
+HMDB61633	C6-OH-carnitine;3-Hydroxyhexanoyl carnitine
+HMDB13324	C8:1-carnitine;2-Octenoylcarnitine
+HMDB00791	C8-carnitine;Octanoylcarnitine
+HMDB02095	C3-DC-carnitine;Malonylcarnitine
+HMDB13325	C10:2-carnitine;Decadienoylcarnitine
+HMDB13205	C10:1-carnitine;Decenoylcarnitine
+HMDB00651	C10-carnitine;Decanoylcarnitine
+HMDB13133	C4-DC-carnitine;Methylmalonylcarnitine
+HMDB13130	C5-DC-carnitine;Glutarylcarnitine
+HMDB13326	C12:1-carnitine;Dodecenoylcarnitine
+HMDB02250	C12-carnitine;Dodecanoylcarnitine
+HMDB00552	C6-DC-carnitine;3-Methylglutarylcarnitine
+HMDB13164	C12-OH-carnitine;2-Hydroxylauroylcarnitine
+HMDB13331	C14:2-carnitine;3, 5-Tetradecadiencarnitine
+HMDB02014	C14:1-carnitine;Tetradecenoylcarnitine
+HMDB05066	C14-carnitine;Tetradecanoylcarnitine
+HMDB0240724	C8-DC-carnitine;Suberoyl-L-carnitine
+HMDB61640	C14-OH-carnitine;3-Hydroxytetradecanoyl carnitine
+HMDB13207	C16:1-carnitine;Hexadecenoylcarnitine
+HMDB00222	C16-carnitine;L-Palmitoylcarnitine
+HMDB13333	C16:1-OH-carnitine;hydroxyhexadecenoyl-L-carnitine
+HMDB61642	C16-OH-carnitine;3-hydroxyhexadecanoyl carnitine
+HMDB06469	C18:2-carnitine;Linoleyl carnitine
+HMDB05065	C18:1-carnitine;Oleoylcarnitine
+HMDB00848	C18-carnitine;Stearoylcarnitine
+HMDB13327	C12-DC-carnitine;Dodecanedioylcarnitine
+HMDB13154	C18-OH-carnitine;12-Hydroxy-12-octadecanoylcarnitine
+HMDB06831	3-Dehydroxycarnitine;4-Butyrobetaine
+HMDB12154	3-Dehydrocarnitine;3-Dehydrocarnitine
+HMDB06455	C20:4-carnitine;Arachidonylcarnitine
+HMDB06460	C20-carnitine;Arachidylcarnitine
+HMDB06509	C24:1-carnitine;Nervonylcarnitine

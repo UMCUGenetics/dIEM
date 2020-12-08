@@ -1,0 +1,15 @@
+HMDB.code;HMDB.name
+HMDB0AA01;PKU-DiagRatio-Phe/Tyr
+HMDB0AA02;Mitochondrial-DiagRatio-Ala/Lys
+HMDB0AA03;Mitochondrial-DiagRatio-Ala/(Phe+Tyr)
+HMDB0AC01;CPT1-DiagRatio-C0/(C16+C18)
+HMDB0AC02;CPT2-DiagRatio-(C16+C18:1)/C2
+HMDB0AC03;VLCAD-DiagRatio-C14:1/C2
+HMDB0AC04;MCAD-DiagRatio-C8/C2
+HMDB0AC05;SCHAD-DiagRatio-C4OH/C2
+HMDB0CM01;CreatineTransporter-DiagRatio-Creatine/Creatinine
+HMDBAAC01;OCTN2-DiagRatio-C3/Met
+HMDBAAC02;OCTN2-DiagRatio-Phe/(C3+C16)
+HMDBCSF01;TH-DiagRatio-HVA/5-HIAA
+HMDB0AC06;TMLHE-DiagRatio-TML/GBB
+HMDB0AC07;MCAD-DiagRatio-C8/C10

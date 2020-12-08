@@ -1,0 +1,29 @@
+HMDB_code	HMDB_name
+HMDB59606	Trimethylammonioacetate
+HMDB29165	"1,3-Diacetylpropane"
+HMDB01106	3-Aminopropionaldehyde
+HMDB12161	4-(Glutamylamino) butanoate
+HMDB12189	Aminopropylcadaverine
+HMDB01414	Putrescine
+HMDB12925	Dehydrospermidine
+HMDB01299	5-Methylthioribulose 1-phosphate
+HMDB01257	Spermidine
+HMDB01186	N1-Acetylspermine
+HMDB02172	"N1,N12-Diacetylspermine"
+HMDB12880	Acetamidopropanal
+HMDB02284	N-Acetylcadaverine
+HMDB03661	N-Methylputrescine
+HMDB60258	N-Methylputrescinium
+HMDB59595	(S)-2-amino-6-oxohexanoate
+HMDB01256	Spermine
+HMDB01276	N1-Acetylspermidine
+HMDB02189	N8-Acetylspermidine
+HMDB02064	N-Acetylputrescine
+HMDB60268	N-Acetylputrescinium
+HMDB11634	Norspermidine
+HMDB41876	Diacetylspermine
+HMDB12815	5-Aminopentanal
+HMDB01173	5'-Methylthioadenosine
+HMDB11150	Deoxyhypusine
+HMDB00002	"1,3-Diaminopropane"
+HMDB01432	Agmatine
