@@ -1,14 +1,16 @@
 #file:config.R
 
-# folder name in which all output will be written
-run_name = "validation_monsternrs_1"
+# name of the run
+run_name = "20201214_MAS_Melissa_DBA"
 # binary variable: run function, yes(1) or no(0)
 algorithm = 1
 ratios = 1
 violin = 1
+# path: where should the outputfolder be made?
+path_output = "~/Documents/dIEM"
 # path: to DIMS excel file
 #path_DIMSfile = "/Volumes/LAB/metab/Metabolomics/Research Metabolic Diagnostics/Metabolomics Projects/Projects 2018/Project 2018_012 Algoritme_TestSet_DBS/RES_DBS_20181001_Run1_Algoritmetest/Bioinformatics_master_ppm5/RES_DBS_20181001_Run1_Algoritmetest_master_ppm5_filter.xlsx"
-path_DIMSfile = "~/Documents/dIEM/test_Helixcodes.xlsx"
+path_DIMSfile = "/Volumes/LAB/metab/Metabolomics/Research Metabolic Diagnostics/Metabolomics Projects/Projects 2019/Project 2019_002 MAS/Metabolite plots_dIEM/20201214_DBA_Z-scoresformetaboliteplots.xlsx"
 # integer: are the sample names headers on row 1 or row 2 in the DIMS excel? (default 1)
 header_row = 1
 # column name where the data starts (default B)
