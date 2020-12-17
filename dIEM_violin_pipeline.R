@@ -26,6 +26,8 @@ sink(file="log.txt")
 
 source("config.R")
 
+
+#Use example config settings if no config.R file could be loaded
 if (!exists("run_name")) {
   # folder name in which all output will be written
   run_name = "00_default_PLRUN10"
@@ -33,6 +35,7 @@ if (!exists("run_name")) {
   algorithm = 1
   ratios = 1
   violin = 1
+  path_output = "~/Documents/dIEM/"
   # path: to DIMS excel file
   #path_DIMSfile = "/Volumes/LAB/metab/Metabolomics/Research Metabolic Diagnostics/Metabolomics Projects/Projects 2019/Project 2019_006 Saoudi Arabie/Bioinformatics_RUN3/2020-02-22_SA_RUN3.xlsx"
   path_DIMSfile = "~/Documents/dIEM/RES_PL_20200907_Diagnosis2017_RUN10_5ppm.xlsx"
@@ -61,14 +64,14 @@ if (!exists("run_name")) {
   
   cat("loading config.R not successful, now sample config settings are used.")
 }
-s <- 15 #suffix for plot names
+s <- 15 #suffix for plot filenames
 #############################
 ########## STEP # 1 #########      Preparation
 ############################# in: run_name, path_DIMSfile, header_row ||| out: output_dir, DIMS
 #############################
 # create new output folder and set as output directory.
-dir.create(file.path("~/Documents/dIEM/", run_name))
-output_dir <- paste0("~/Documents/dIEM/",run_name)
+dir.create(file.path(path_output, run_name))
+output_dir <- paste0(path_output,"/",run_name)
 cat (paste("directory made:",output_dir, sep=""))
 able_to_copy <- file.copy("config.R",output_dir)
 cat(paste0("\n config file successfully copied to ",output_dir," = ",able_to_copy))
@@ -334,7 +337,6 @@ make_plots <- function(metab.list,stoftest,pt,zscore_cutoff,xaxis_cutoff) {
   #moi <- summed[summed$HMDB_code %in% metab.list[[1]], ]
   #moi <- summed[summed$HMDB_code %in% metab.list$HMDB_code, ]
   #metab.list <- metab.list0[[1]]
-  #cat(stoftest)
   joined <- inner_join(metab.list, summed, by = "HMDB_code")
   
   moi <- joined[-2]
@@ -385,11 +387,11 @@ make_plots <- function(metab.list,stoftest,pt,zscore_cutoff,xaxis_cutoff) {
     
     g <- ggplot(moi_m, mapping = aes(x=value, y=HMDB_name))+
       geom_violin(scale="width")+
-      geom_jitter(data = group_highZ,aes(color = variable), size = 2.5, position = position_dodge(0.8))+ #,colour = "#3592b7" 
+      geom_jitter(data = group_highZ,aes(color = variable), size = 2.5, position = position_dodge(0.8))+ 
       labs(x = "Z-scores",y = "Metabolites",title = "Overview plot", subtitle = paste0(stoftest,"\nZ-score > ",zscore_cutoff), color = "patients")+
       geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)
     print(g)
-    #abline(v = 2, col = "gray60")
+
     
     plot_height <- 80 * i_tot + (i_tot/(nrow(group_highZ) *0.25))*5
     plot_width <- 800
@@ -397,7 +399,7 @@ make_plots <- function(metab.list,stoftest,pt,zscore_cutoff,xaxis_cutoff) {
     
     g <- ggplot(moi_m_max20, mapping = aes(x=value, y=HMDB_name))+
       geom_violin(scale="width")+
-      geom_jitter(data = group_highZ_max20,aes(color = group_highZ$variable), size = 2.5, position = position_dodge(0.8))+ #,colour = "#3592b7" 
+      geom_jitter(data = group_highZ_max20,aes(color = group_highZ$variable), size = 2.5, position = position_dodge(0.8))+ 
       labs(x = "Z-scores",y = "Metabolites",title = "Overview plot", subtitle = paste0(stoftest,"\nZ-score > ",zscore_cutoff), color = "patients")+
       geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)
     print(g)
@@ -407,8 +409,6 @@ make_plots <- function(metab.list,stoftest,pt,zscore_cutoff,xaxis_cutoff) {
 
 lapply(patient_list, function(pt) {
   # for each patient, go into the for loop for as many stofgroups there are.
-  #zscore_cutoff <- 5
-  #xaxis_cutoff <- 20
   cat(paste0("\n","For ",pt,", done with plot nr. "))
   i_tot <- 48
   plot_height <- 0.5 * i_tot
@@ -444,4 +444,7 @@ able_to_copy <- file.copy("log.txt",paste0(output_dir, "/log_",s,".txt"))
 cat(paste0("\n log file successfully copied to ",output_dir," = ",able_to_copy))
 beep(1)
 
-rm(list = ls())
+
+
+
+#rm(list = ls())
