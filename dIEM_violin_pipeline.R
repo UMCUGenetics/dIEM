@@ -1,6 +1,9 @@
 
 #packused <- list.functions.in.file("dIEM_violin_pipeline.R", alphabetic = TRUE)
 
+
+
+
 library(beepr)
 library(dplyr)
 library(reshape2)
@@ -17,7 +20,7 @@ rm(list = ls())
 
 
 shorter <- 0
-
+low_memory <- 1
 sink(file="log.txt")
 #############################
 ########## STEP # 0 #########      config settings
@@ -76,127 +79,119 @@ cat (paste("directory made:",output_dir, sep=""))
 able_to_copy <- file.copy("config.R",output_dir)
 cat(paste0("\n config file successfully copied to ",output_dir," = ",able_to_copy))
 # Load the excel file.
-# If the excel file has the headers on row 2, set startRow to 2, otherwise, startRow=1.
-DIMS <- readWorkbook(xlsxFile = path_DIMSfile, sheet = 1, startRow = header_row)
-# if header is on second row while header_row is set to 1, reload file with 2.
-#if (DIMS[2,1] == "HMDB00002" | DIMS[2,2] == "HMDB00002") {
-#  cat("\n Header is on second row, loading again....")
-#  DIMS <- readWorkbook(xlsxFile = path_DIMSfile, sheet = 1, startRow = 2)
-#}
+dimsxls <- readWorkbook(xlsxFile = path_DIMSfile, sheet = 1, startRow = header_row)
 cat (paste("\n loaded",path_DIMSfile, sep=""))
 cat("\n ### Step 1 # Preparation is done.\n")
 beep("coin")
 
 #############################
 ########## STEP # 2 #########      Edit DIMS data 
-############################# in: DIMS ||| out: Data, nrcontr, nrpat
+############################# in: DIMSxls ||| out: Data, nrcontr, nrpat
 #############################
+# It edits a few column names, removes irrelevant columns.
 # Input: 
 # The xlsx file that comes out of the pipeline (v.2.0.0) with format:
 # [plots] [C] [P] [summary columns] [C_Zscore] [P_Zscore]
 
 # Output: 
-# "_CSV.csv" file that is suited for the algorithm, with format:
-# "_Ratios_CSV.csv" file, same file as above, but with ratio rows added.
+# Data dataframe 
+# "_CSV.csv" file that is suited for the algorithm in shiny.
 
 
-pppData <- DIMS
+
+dims2 <- dimsxls
 # Calculate the number of C's and P's in column names to extract the following numbers:
-nrcontr <- length(grep("C",names(pppData)))/2   # Number of control samples
-nrpat <- length(grep("P",names(pppData)))/2     # Number of patient samples
-if (nrcontr + nrpat != length(grep("_Zscore", names(pppData)))) {
+nrcontr <- length(grep("C",names(dims2)))/2   # Number of control samples
+nrpat <- length(grep("P",names(dims2)))/2     # Number of patient samples
+if (nrcontr + nrpat != length(grep("_Zscore", names(dims2)))) {
   cat("Error: there aren't as many intensities listed as Zscores")
 }
 cat(paste0(nrcontr, " controls \n",nrpat," patients \n"))
 
 # Get the columns HMDB_code and HMDB_name to the beginning. 
-ppData <- select(pppData, c(HMDB_code, HMDB_name), everything())
+dims2 <- select(dims2, c(HMDB_code, HMDB_name), everything())
 # Remove the columns from 'name' to 'pathway'
-if (!is.na(ppData[1,3])){ # in case the excel had no empty "plots" column
-  pData <- subset( ppData, select = -c(name : pathway ))
+if (!is.na(dims2[1,3])){ # in case the excel had no empty "plots" column
+  dims2 <- subset( dims2, select = -c(name : pathway ))
 } else {
-pData <- subset( ppData, select = -c( name : pathway ))[-3] 
+dims2 <- subset( dims2, select = -c( name : pathway ))[-3] 
 }
 # Rename the columns from..to..
-names(pData) <- gsub("avg.ctrls", "Mean_controls", gsub("sd.ctrls", "SD_controls", names(pData) ) )
-names(pData) <- gsub("HMDB_code", "HMDB.code", gsub("HMDB_name", "HMDB.name", names(pData) ) )
+names(dims2) <- gsub("avg.ctrls", "Mean_controls", gsub("sd.ctrls", "SD_controls", names(dims2) ) )
+names(dims2) <- gsub("HMDB_code", "HMDB.code", gsub("HMDB_name", "HMDB.name", names(dims2) ) )
 
 #first, select the intensity columns by all cols minus nrsamples
 nrsamples = nrcontr + nrpat
-beginZscores = ncol(ppData) - nrsamples
+beginZscores = ncol(dims2) - nrsamples
 i <- c(3:(nrsamples+2))
 #change the intensities to numeric values
-pData[, i] <- sapply(pData[, i], as.numeric)
+dims2[, i] <- sapply(dims2[, i], as.numeric)
 
 
-#Zscore<-read.csv(paste(project,"_CSV.csv",sep=""), sep=";", stringsAsFactors=FALSE)
-Data <- pData
 
 if (shorter==1){
   pos_ctr <- 13 # number of positive ctrs that are between controls and patients in df
   number_patients <- 15 # number of patients that are sampled
-  Data <- pData[,c(1:2,
+  dims2 <- dims2[,c(1:2,
                          3:(nrcontr+2), 
                          (3+nrcontr+pos_ctr):(2+ nrcontr +pos_ctr+number_patients),
                  (3+ nrcontr +nrpat):(4+ 2*nrcontr +nrpat),
                  (5+ 2*nrcontr +nrpat+pos_ctr):(4+ 2*nrcontr +nrpat+ pos_ctr +number_patients)
                  
                          )] #(5+ 2*nrcontr + 2*pos_ctr +number_patients):(4+ 2*nrcontr + 2*pos_ctr + 2*number_patients)
-  nrcontr <- length(grep("C",names(Data)))/2   # Number of control samples
-  nrpat <- length(grep("P",names(Data)))/2     # Number of patient samples
-  nrsamples <- nrcontr + nrpat
-  beginZscores = ncol(Data) - nrsamples
+  nrcontr <- length(grep("C",names(dims2)))/2   # Number of control samples
+  nrpat <- length(grep("P",names(dims2)))/2     # Number of patient samples
   i <- c(3:(nrsamples+2))
 }
-cat("### Step 2 # Edit DIMS data is done.\n")
+cat("### Step 2 # Edit dims data is done.\n")
 
 
 #############################
 ########## STEP # 3 #########      Calculate ratios
-############################# in: ratios, path_ratios, Data, nrcontr, nrpat ||| out: Zscore (+file)
+############################# in: ratios, path_ratios, dims2, nrcontr, nrpat ||| out: Zscore (+file)
 ############################# 
 # This script loads the file with Ratios (path_ratios) and calculates 
-# the ratios of the intensities of the given metabolites, and also calculates
+# the ratios of the intensities of the given metabolites. It also calculates
 # Zscores based on the avg and sd of the ratios of the controls.
 
 # Input:
 # The dataframe with intenstities and Zscores of controls and patients:
-# [HMDB_code] [HMDB_name] [C] [P] [Mean_Controls] [SD_Controls] [C_Zscore] [P_Zscore]
+# [HMDB.code] [HMDB.name] [C] [P] [Mean_controls] [SD_controls] [C_Zscore] [P_Zscore]
 
 # Output:
 # "_CSV.csv" file that is suited for the algorithm, with format:
 # 
 # "_Ratios_CSV.csv" file, same file as above, but with ratio rows added.
-
-
+dims3 <- dims2
+#rm(dims2)
 
 if (ratios == 1) { # ratios in settings is 1
 cat(paste0("\n loading ratios file: \n",path_ratios))
 RatioInput<-read.csv(path_ratios,sep=';',stringsAsFactors=FALSE)
 
 # Prepare empty data frame to fill with ratios
-Ratios<-setNames(data.frame(matrix(ncol=ncol(Data),nrow=nrow(RatioInput))),colnames(Data))
+Ratios<-setNames(data.frame(matrix(ncol=ncol(dims3),nrow=nrow(RatioInput))),colnames(dims3))
 Ratios[,1:2]<-RatioInput[,1:2]
 ### idea: test without log10 , look into expected for ratios
 for (controls in c(3:(nrcontr+2),(nrcontr+3):(nrcontr+nrpat+2))) {
-  Ratios[1,controls]<-log10(Data[which(Data[,1]=='HMDB00159'),controls]/Data[which(Data[,1]=='HMDB00158'),controls])
-  Ratios[2,controls]<-log10(Data[which(Data[,1]=='HMDB00161'),controls]/Data[which(Data[,1]=='HMDB00182'),controls])
-  Ratios[3,controls]<-log10(Data[which(Data[,1]=='HMDB00161'),controls]/
-                              (Data[which(Data[,1]=='HMDB00159'),controls]+Data[which(Data[,1]=='HMDB00158'),controls]))
-  Ratios[4,controls]<-log10(Data[which(Data[,1]=='HMDB00062'),controls]/
-                              (Data[which(Data[,1]=='HMDB00222'),controls]+Data[which(Data[,1]=='HMDB00848'),controls]))
-  Ratios[5,controls]<-log10((Data[which(Data[,1]=='HMDB00222'),controls]+Data[which(Data[,1]=='HMDB05065'),controls])
-                            /Data[which(Data[,1]=='HMDB00201'),controls])
-  Ratios[6,controls]<-log10(Data[which(Data[,1]=='HMDB02014'),controls]/Data[which(Data[,1]=='HMDB00201'),controls])
-  Ratios[7,controls]<-log10(Data[which(Data[,1]=='HMDB00791'),controls]/Data[which(Data[,1]=='HMDB00201'),controls])
-  Ratios[8,controls]<-log10(Data[which(Data[,1]=='HMDB13127'),controls]/Data[which(Data[,1]=='HMDB00201'),controls])
-  Ratios[9,controls]<-log10(Data[which(Data[,1]=='HMDB00064'),controls]/Data[which(Data[,1]=='HMDB00562'),controls])
-  Ratios[10,controls]<-log10(Data[which(Data[,1]=='HMDB00824'),controls]/Data[which(Data[,1]=='HMDB00696'),controls])
-  Ratios[11,controls]<-log10(Data[which(Data[,1]=='HMDB00159'),controls]/
-                               (Data[which(Data[,1]=='HMDB00824'),controls]+Data[which(Data[,1]=='HMDB00222'),controls]))
-  Ratios[12,controls]<-log10(Data[which(Data[,1]=='HMDB00118'),controls]/Data[which(Data[,1]=='HMDB00763'),controls])
-  Ratios[13,controls]<-log10(Data[which(Data[,1]=='HMDB01325'),controls]/Data[which(Data[,1]=='HMDB06831'),controls])
-  Ratios[14,controls]<-log10(Data[which(Data[,1]=='HMDB00791'),controls]/Data[which(Data[,1]=='HMDB00651'),controls])
+  Ratios[1,controls]<-log10(dims3[which(dims3[,1]=='HMDB00159'),controls]/dims3[which(dims3[,1]=='HMDB00158'),controls])
+  Ratios[2,controls]<-log10(dims3[which(dims3[,1]=='HMDB00161'),controls]/dims3[which(dims3[,1]=='HMDB00182'),controls])
+  Ratios[3,controls]<-log10(dims3[which(dims3[,1]=='HMDB00161'),controls]/
+                              (dims3[which(dims3[,1]=='HMDB00159'),controls]+dims3[which(dims3[,1]=='HMDB00158'),controls]))
+  Ratios[4,controls]<-log10(dims3[which(dims3[,1]=='HMDB00062'),controls]/
+                              (dims3[which(dims3[,1]=='HMDB00222'),controls]+dims3[which(dims3[,1]=='HMDB00848'),controls]))
+  Ratios[5,controls]<-log10((dims3[which(dims3[,1]=='HMDB00222'),controls]+dims3[which(dims3[,1]=='HMDB05065'),controls])
+                            /dims3[which(dims3[,1]=='HMDB00201'),controls])
+  Ratios[6,controls]<-log10(dims3[which(dims3[,1]=='HMDB02014'),controls]/dims3[which(dims3[,1]=='HMDB00201'),controls])
+  Ratios[7,controls]<-log10(dims3[which(dims3[,1]=='HMDB00791'),controls]/dims3[which(dims3[,1]=='HMDB00201'),controls])
+  Ratios[8,controls]<-log10(dims3[which(dims3[,1]=='HMDB13127'),controls]/dims3[which(dims3[,1]=='HMDB00201'),controls])
+  Ratios[9,controls]<-log10(dims3[which(dims3[,1]=='HMDB00064'),controls]/dims3[which(dims3[,1]=='HMDB00562'),controls])
+  Ratios[10,controls]<-log10(dims3[which(dims3[,1]=='HMDB00824'),controls]/dims3[which(dims3[,1]=='HMDB00696'),controls])
+  Ratios[11,controls]<-log10(dims3[which(dims3[,1]=='HMDB00159'),controls]/
+                               (dims3[which(dims3[,1]=='HMDB00824'),controls]+dims3[which(dims3[,1]=='HMDB00222'),controls]))
+  Ratios[12,controls]<-log10(dims3[which(dims3[,1]=='HMDB00118'),controls]/dims3[which(dims3[,1]=='HMDB00763'),controls])
+  Ratios[13,controls]<-log10(dims3[which(dims3[,1]=='HMDB01325'),controls]/dims3[which(dims3[,1]=='HMDB06831'),controls])
+  Ratios[14,controls]<-log10(dims3[which(dims3[,1]=='HMDB00791'),controls]/dims3[which(dims3[,1]=='HMDB00651'),controls])
 }
 
 # Calc means and SD's of the calculated ratios, add them in 2 columns in ratio df.
@@ -213,17 +208,21 @@ for (Zscores in (nrcontr+nrpat+5):(2*(nrcontr+nrpat)+4)) {
 }
 
 # Add rows of the ratio hmdb codes to the data of zscores from the pipeline.
-Combined<-rbind.data.frame(Ratios,Data)
+Combined<-rbind.data.frame(Ratios,dims3)
 
 # explain.
 Zscore <- Combined[,c(1:2,(2*nrcontr+nrpat+5):(2*(nrcontr+nrpat)+4))]
+#Zscoretest <- Combined[,c(1:2,grep("P",colnames(Data))[-c(1:nrpat)] )]
 Zscore_all <- Combined[,c(1:2,(nrcontr+nrpat+5):(2*(nrcontr+nrpat)+4))]
+#Zscore_alltest <- Combined[,c(1:2,grep("P|C",colnames(Data))[-c(1:(nrpat+nrcontr))] )]
 # _Ratios: full dataframe, with intensities, intensity ratios & zscores and zscores ratios
 #write.csv(Combined, file=paste(output_dir,"/",run_name,"_Ratios_CSV.csv",sep=""))
 # _inputshiny: only zscores and zscores of ratio hmdb's, to be used as input for algorithm shiny app
 write.table(Zscore,file=paste(output_dir,"/",run_name,"inputshiny_CSV.csv",sep=""),quote=FALSE,sep=";",row.names=FALSE)
 cat("### Step 3 # Calculate ratios is done.\n")
-
+if low_memory == 1 {
+  rm(Zscore_all,dims2,dims3,dimsxls,Combined)
+}
 }
 
 
@@ -298,7 +297,9 @@ disRank[2:ncol(disRank)] <- lapply(2:ncol(disRank), function(x) as.numeric(order
 write.xlsx(ProbScore0, paste0(output_dir,"/",run_name,"algoritme_output.xlsx"))
 
 cat("### Step 4 # Run the algorithm is done.\n")
-
+if low_memory == 1 {
+  rm(Rank, disRank, Exp_Metabscore,Exp_Rank,Exp_Zscores,Expected,Exp_Zscores0,ProbScore,dup,uni,Wscore,Ratios)
+}
 }
 
 beep("coin")
@@ -309,7 +310,7 @@ beep("coin")
 
 if ( algorithm == 0 ){
   #nrcontr <- Data
-  Zscore <- Data[,c(1:2,(2*nrcontr+nrpat+5):(2*(nrcontr+nrpat)+4))]
+  Zscore <- Data[,c(1:2,(2*nrcontr+nrpat+5):(2*(nrcontr+nrpat)+4))]                                                         
 }
 if (violin == 1) {
 #Edit the DIMS output Zscores of all patients in format:
