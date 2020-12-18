@@ -1,5 +1,5 @@
 HMDB_code	HMDB_name
-HMDB00062	vrij carnitine;Carnitine
+HMDB00062	vrij carnitine
 HMDB00201	C2-carnitine;Acetylcarnitine
 HMDB13124	C3:1-carnitine;Propenoylcarnitine
 HMDB00824	C3-carnitine;Propionylcarnitine
@@ -39,7 +39,7 @@ HMDB00848	C18-carnitine;Stearoylcarnitine
 HMDB13327	C12-DC-carnitine;Dodecanedioylcarnitine
 HMDB13154	C18-OH-carnitine;12-Hydroxy-12-octadecanoylcarnitine
 HMDB06831	3-Dehydroxycarnitine;4-Butyrobetaine
-HMDB12154	3-Dehydrocarnitine;3-Dehydrocarnitine
+HMDB12154	3-Dehydrocarnitine
 HMDB06455	C20:4-carnitine;Arachidonylcarnitine
 HMDB06460	C20-carnitine;Arachidylcarnitine
 HMDB06509	C24:1-carnitine;Nervonylcarnitine
