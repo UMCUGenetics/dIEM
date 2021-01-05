@@ -1,6 +1,7 @@
-# With the output of the DIMS pipeline, this script generates probability scores
-# for each patient. In addition, it provides visual support with violin plots 
-# of the DIMS measurements for the lab specialists.
+#For untargeted metabolomics, this tool calculates probability scores for 
+# metabolic disorders. In addition, it provides visual support with violin plots 
+# of the mass spectrometry (DI-HRMS) measurements for the lab specialists.
+
 
 
 #packused <- list.functions.in.file("dIEM_violin_pipeline.R", alphabetic = TRUE)
@@ -19,54 +20,21 @@ library(gghighlight)
 rm(list = ls())
 
 shorter <- 0
-low_memory <- 1
+low_memory <- 0
 sink(file="log.txt")
+
 #############################
 ########## STEP # 0 #########      config settings
 #############################
 
-
 source("config.R")
-
-
-#Use example config settings if no config.R file could be loaded
-if (!exists("run_name")) {
-  # folder name in which all output will be written
-  run_name = "00_default_PLRUN10"
-  # binary variable: run function, yes(1) or no(0)
-  algorithm = 1
-  ratios = 1
-  violin = 1
-  path_output = "~/Documents/dIEM/"
-  # path: to DIMS excel file
-  #path_DIMSfile = "/Volumes/LAB/metab/Metabolomics/Research Metabolic Diagnostics/Metabolomics Projects/Projects 2019/Project 2019_006 Saoudi Arabie/Bioinformatics_RUN3/2020-02-22_SA_RUN3.xlsx"
-  path_DIMSfile = "~/Documents/dIEM/RES_PL_20200907_Diagnosis2017_RUN10_5ppm.xlsx"
-  # integer: are the sample names headers on row 1 or row 2 in the DIMS excel? (default 1)
-  header_row = 1
-  # column name where the data starts (default B)
-  col_start = "B"
-  
-  ### if violin = 1 
-  # directory: folder in which all metabolite lists are (.txt)
-  path_txtfiles = "~/Documents/dIEM/stofgroups"
-  zscore_cutoff = 5
-  xaxis_cutoff = 20
-  
-  
-  ### if algorithm = 1
-  path_expected = "~/Documents/dIEM/Expected_version20191108_CSV.csv"
-  
-  ### if ratios = 1
-  path_ratios = "~/Documents/dIEM/Ratios_20191108_CSV.csv"
-  
-  
-  ### if algoritm = 1 & violin = 1
-  top_diseases = 5
-  top_metab = 20
-  
-  cat("loading config.R not successful, now sample config settings are used.")
+if (exists("run_name")) {
+  cat("\n The config file is succesfully loaded. \n ")
+} else {
+  cat("\n Error: Could not find a config file. please check if working directory is set in 'Session'. \n ")
 }
-s <- 1 #suffix for plot filenames
+s <- 1 #suffix for filenames
+
 #############################
 ########## STEP # 1 #########      Preparation
 ############################# in: run_name, path_DIMSfile, header_row ||| out: output_dir, DIMS
@@ -76,11 +44,21 @@ dir.create(file.path(path_output, run_name))
 output_dir <- paste0(path_output,"/",run_name)
 cat (paste("directory made:",output_dir, sep=""))
 able_to_copy <- file.copy("config.R",output_dir)
+if (able_to_copy) {
+  cat(paste0("\n config file successfully copied to ",output_dir))
+} else {
+  cat("\n ---- Warning: please use a new run name for every run. Because it could not copy config.R to output folder. \n")
+}
 cat(paste0("\n config file successfully copied to ",output_dir," = ",able_to_copy))
 # Load the excel file.
 dimsxls <- readWorkbook(xlsxFile = path_DIMSfile, sheet = 1, startRow = header_row)
+if (exists("dimsxls")) {
+  cat("\n The excel file is succesfully loaded. \n ")
+} else {
+  cat("\n Error: Could not find an excel file. Please check if path to excel file is correct in config.R . \n ")
+}
 cat (paste("\n loaded",path_DIMSfile, sep=""))
-cat("\n ### Step 1 # Preparation is done.\n")
+#cat("\n ### Step 1 # Preparation is done.\n")
 beep("coin")
 
 #############################
@@ -142,7 +120,12 @@ if (shorter==1){
   nrpat <- length(grep("P",names(dims2)))/2     # Number of patient samples
   i <- c(3:(nrsamples+2))
 }
-cat("### Step 2 # Edit dims data is done.\n")
+if (exists("dims2") & (length(dims2)<length(dimsxls))) {
+  cat("\n ### Step 2 # Edit dims data is done.\n \n ")
+} else {
+  cat("\n Error: Could not execute step 2 \n ")
+}
+#cat("### Step 2 # Edit dims data is done.\n")
 
 
 #############################
@@ -218,7 +201,15 @@ Zscore_all <- Combined[,c(1:2,(nrcontr+nrpat+5):(2*(nrcontr+nrpat)+4))]
 #write.csv(Combined, file=paste(output_dir,"/",run_name,"_Ratios_CSV.csv",sep=""))
 # _inputshiny: only zscores and zscores of ratio hmdb's, to be used as input for algorithm shiny app
 write.table(Zscore,file=paste(output_dir,"/",run_name,"inputshiny_CSV.csv",sep=""),quote=FALSE,sep=";",row.names=FALSE)
-cat("### Step 3 # Calculate ratios is done.\n")
+
+
+if (exists("Combined") & (length(Zscore)<length(Zscore_all))) {
+  cat("\n ### Step 3 # Calculate ratios is done.\n \n ")
+} else {
+  cat("\n Error: Could not calculate ratios. Check if path to ratios-file is correct in config.R. \n ")
+}
+
+#cat("### Step 3 # Calculate ratios is done.\n")
 if (low_memory == 1) {
   rm(Zscore_all,dims2,dims3,dimsxls,Combined)
 }
@@ -294,8 +285,12 @@ disRank[2:ncol(disRank)] <- lapply(2:ncol(disRank), function(x) as.numeric(order
 
 
 write.xlsx(ProbScore0, paste0(output_dir,"/",run_name,"algoritme_output.xlsx"))
-
-cat("### Step 4 # Run the algorithm is done.\n")
+if (exists("Expected") & (length(disRank)==length(ProbScore0))) {
+  cat("\n ### Step 4 # Run the algorithm is done.\n \n ")
+} else {
+  cat("\n Error: Could not run algorithm. Check if path to Expected csv-file is correct in config.R. \n ")
+}
+#cat("### Step 4 # Run the algorithm is done.\n")
 if (low_memory == 1) {
   rm(Rank, disRank, Exp_Metabscore,Exp_Rank,Exp_Zscores,Expected,Exp_Zscores0,ProbScore,dup,uni,Wscore,Ratios)
 }
@@ -430,10 +425,19 @@ lapply(patient_list, function(pt) {
       cat(paste0(c," .."))
     }
   }
-  s <- dev.off()
+  k <- dev.off()
 })
-cat("### Step 5 # Make the violin plots is done.\n")
+outputfiles <- list.files(path=paste0(path_output,"/",run_name), pattern="*.pdf", full.names=FALSE, recursive=FALSE)
+if (exists("stofgroup_files") & exists("metab.list1") & (length(outputfiles)==(nrpat+1))) {
+  cat("\n ### Step 5 # Make the violin plots is done. \n ")
 
+} else {
+  cat("\n Error: Could not make violin plots or output folder already existed. pdf's made: \n ")
+
+}
+#cat("### Step 5 # Make the violin plots is done.\n")
+cat("\n violin plots pdf files made: ")
+cat(paste0("\n",outputfiles))
 }
 
 
@@ -441,5 +445,10 @@ cat("### Step 5 # Make the violin plots is done.\n")
 cat(paste0("\n All steps are executed, find output files here:\n",output_dir))
 sink()
 able_to_copy <- file.copy("log.txt",paste0(output_dir, "/log_",run_name,".txt"))
-cat(paste0("\n log file successfully copied to ",output_dir," = ",able_to_copy))
+if (able_to_copy) {
+  cat(paste0("\n log file successfully copied to ",output_dir))
+} else {
+  cat("\n ---- Warning: please use a new run name for every run. Because it could not copy log file to output folder. \n")
+  file.copy("log.txt",paste0(output_dir, "/log_",run_name,"_____read_warning.txt"))
+}
 beep(1)
