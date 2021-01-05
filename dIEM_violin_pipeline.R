@@ -1,3 +1,7 @@
+# With the output of the DIMS pipeline, this script generates probability scores
+# for each patient. In addition, it provides visual support with violin plots 
+# of the DIMS measurements for the lab specialists.
+
 
 #packused <- list.functions.in.file("dIEM_violin_pipeline.R", alphabetic = TRUE)
 
@@ -7,20 +11,15 @@
 library(beepr)
 library(dplyr)
 library(reshape2)
-library(data.table) # needed? reshape2 might be enough for melt
+library(data.table)
 library(openxlsx)
 library(ggplot2)
-library(gghighlight) # needed?
-
-# standard? : "stats" "utils" "base"
-
-
+library(gghighlight)
 
 rm(list = ls())
 
-
 shorter <- 0
-low_memory <- 0
+low_memory <- 1
 sink(file="log.txt")
 #############################
 ########## STEP # 0 #########      config settings
@@ -67,7 +66,7 @@ if (!exists("run_name")) {
   
   cat("loading config.R not successful, now sample config settings are used.")
 }
-s <- 15 #suffix for plot filenames
+s <- 1 #suffix for plot filenames
 #############################
 ########## STEP # 1 #########      Preparation
 ############################# in: run_name, path_DIMSfile, header_row ||| out: output_dir, DIMS
@@ -441,11 +440,6 @@ cat("### Step 5 # Make the violin plots is done.\n")
 #############################
 cat(paste0("\n All steps are executed, find output files here:\n",output_dir))
 sink()
-able_to_copy <- file.copy("log.txt",paste0(output_dir, "/log_",s,".txt"))
+able_to_copy <- file.copy("log.txt",paste0(output_dir, "/log_",run_name,".txt"))
 cat(paste0("\n log file successfully copied to ",output_dir," = ",able_to_copy))
 beep(1)
-
-
-
-
-#rm(list = ls())
