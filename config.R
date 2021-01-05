@@ -9,10 +9,10 @@
 
 
 # name of the run, will be the name of output folder and should not already exist 
-run_name = "20201023_Urines-3"
+run_name = "2020-008-22q11-zscore5"
 
 # path: to DIMS excel file
-path_DIMSfile = "/Volumes/metab/Metabolomics/Research Metabolic Diagnostics/Metabolomics Projects/Projects 2020/Project 2020_010_SinglePatients_Urine/bioinformatics_URI_2020-10-23-urines_DIMS2.1.0_5ppm/URI_2020-20-23-urines_DIMS2.1.0_5ppm.xlsx"
+path_DIMSfile = "/Volumes/metab/Metabolomics/Research Metabolic Diagnostics/Metabolomics Projects/Projects 2020/Project 2020_008 22q11/Bioinformatics/Project_2020_008_22q11.xlsx"
 
 
 
