@@ -1,1 +1,6 @@
+.Rhistory
+.DS_Store
+.gitignore
 config.R
+*_edit.R
+*.txt
