@@ -20,7 +20,7 @@ rm(list = ls())
 
 
 shorter <- 0
-low_memory <- 1
+low_memory <- 0
 sink(file="log.txt")
 #############################
 ########## STEP # 0 #########      config settings
@@ -220,7 +220,7 @@ Zscore_all <- Combined[,c(1:2,(nrcontr+nrpat+5):(2*(nrcontr+nrpat)+4))]
 # _inputshiny: only zscores and zscores of ratio hmdb's, to be used as input for algorithm shiny app
 write.table(Zscore,file=paste(output_dir,"/",run_name,"inputshiny_CSV.csv",sep=""),quote=FALSE,sep=";",row.names=FALSE)
 cat("### Step 3 # Calculate ratios is done.\n")
-if low_memory == 1 {
+if (low_memory == 1) {
   rm(Zscore_all,dims2,dims3,dimsxls,Combined)
 }
 }
@@ -297,7 +297,7 @@ disRank[2:ncol(disRank)] <- lapply(2:ncol(disRank), function(x) as.numeric(order
 write.xlsx(ProbScore0, paste0(output_dir,"/",run_name,"algoritme_output.xlsx"))
 
 cat("### Step 4 # Run the algorithm is done.\n")
-if low_memory == 1 {
+if (low_memory == 1) {
   rm(Rank, disRank, Exp_Metabscore,Exp_Rank,Exp_Zscores,Expected,Exp_Zscores0,ProbScore,dup,uni,Wscore,Ratios)
 }
 }
