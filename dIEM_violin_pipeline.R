@@ -16,11 +16,12 @@ library(data.table)
 library(openxlsx)
 library(ggplot2)
 library(gghighlight)
+library(sys)
 
 rm(list = ls())
-
+w <- 0.5 # aantal secondes dat hij tussendoor wach
 shorter <- 0
-low_memory <- 0
+low_memory <- 1
 sink(file="log.txt")
 
 #############################
@@ -61,6 +62,7 @@ cat (paste("\n loaded",path_DIMSfile, sep=""))
 #cat("\n ### Step 1 # Preparation is done.\n")
 beep("coin")
 
+Sys.sleep(w)
 #############################
 ########## STEP # 2 #########      Edit DIMS data 
 ############################# in: DIMSxls ||| out: Data, nrcontr, nrpat
@@ -128,6 +130,7 @@ if (exists("dims2") & (length(dims2)<length(dimsxls))) {
 #cat("### Step 2 # Edit dims data is done.\n")
 
 
+Sys.sleep(w)
 #############################
 ########## STEP # 3 #########      Calculate ratios
 ############################# in: ratios, path_ratios, dims2, nrcontr, nrpat ||| out: Zscore (+file)
@@ -200,7 +203,7 @@ Zscore_all <- Combined[,c(1:2,(nrcontr+nrpat+5):(2*(nrcontr+nrpat)+4))]
 # _Ratios: full dataframe, with intensities, intensity ratios & zscores and zscores ratios
 #write.csv(Combined, file=paste(output_dir,"/",run_name,"_Ratios_CSV.csv",sep=""))
 # _inputshiny: only zscores and zscores of ratio hmdb's, to be used as input for algorithm shiny app
-write.table(Zscore,file=paste(output_dir,"/",run_name,"inputshiny_CSV.csv",sep=""),quote=FALSE,sep=";",row.names=FALSE)
+write.table(Zscore,file=paste(output_dir,"/",run_name,"_inputshiny_CSV.csv",sep=""),quote=FALSE,sep=";",row.names=FALSE)
 
 
 if (exists("Combined") & (length(Zscore)<length(Zscore_all))) {
@@ -216,6 +219,7 @@ if (low_memory == 1) {
 }
 
 
+Sys.sleep(w)
 #############################
 ########## STEP # 4 #########      Run the algorithm
 ############################# in: algoritm, path_expected, Zscore ||| out: ProbScore0 (+file)
@@ -284,7 +288,7 @@ disRank[2:ncol(disRank)] <- lapply(2:ncol(disRank), function(x) as.numeric(order
 # col names aanpassen! van _Zscore naar niks
 
 
-write.xlsx(ProbScore0, paste0(output_dir,"/",run_name,"algoritme_output.xlsx"))
+write.xlsx(ProbScore0, paste0(output_dir,"/",run_name,"_algoritme_output.xlsx"))
 if (exists("Expected") & (length(disRank)==length(ProbScore0))) {
   cat("\n ### Step 4 # Run the algorithm is done.\n \n ")
 } else {
@@ -297,6 +301,7 @@ if (low_memory == 1) {
 }
 
 beep("coin")
+Sys.sleep(w)
 #############################
 ########## STEP # 5 #########      Make violin plots
 ############################# in: algorithm / Zscore, violin, nrcontr, nrpat, Data, path_textfiles, zscore_cutoff, xaxis_cutoff, top_diseases, top_metab, output_dir ||| out: pdf file
@@ -441,6 +446,7 @@ cat(paste0("\n",outputfiles))
 }
 
 
+Sys.sleep(w)
 #############################
 cat(paste0("\n All steps are executed, find output files here:\n",output_dir))
 sink()
