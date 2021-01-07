@@ -9,10 +9,10 @@
 
 
 # name of the run, will be the name of output folder and should not already exist 
-run_name = "2020-008-22q11-zscore5"
+run_name = "test1-windows-birgitpc"
 
 # path: to DIMS excel file
-path_DIMSfile = "/Volumes/metab/Metabolomics/Research Metabolic Diagnostics/Metabolomics Projects/Projects 2020/Project 2020_008 22q11/Bioinformatics/Project_2020_008_22q11.xlsx"
+path_DIMSfile = "Y:/Untargeted\ Metabolomics/Algoritme/dIEM/voorbeeld_PL_Coco_Nodding_RUN1.xlsx"
 
 
 
@@ -23,7 +23,7 @@ ratios = 1
 violin = 1
 
 # path: where should the outputfolder be made? Use your own output folder
-path_output = "~/Documents/dIEM/output"
+path_output = "Y:/Untargeted\ Metabolomics/Algoritme/dIEM/test-output"
 
 
 # standard input data files:
@@ -31,13 +31,13 @@ path_output = "~/Documents/dIEM/output"
 
 ### if violin = 1 
 # directory: folder in which all metabolite lists are (.txt)
-path_txtfiles = "~/github/dIEM/stofgroups"
+path_txtfiles = "Y:/Untargeted\ Metabolomics/Algoritme/dIEM/dIEM-main/stofgroups"
 
 ### if algorithm = 1
-path_expected = "~/github/dIEM/data/Expected_version20191108_CSV.csv"
+path_expected = "Y:/Untargeted\ Metabolomics/Algoritme/dIEM/dIEM-main/data/Expected_version20191108_CSV.csv"
 
 ### if ratios = 1
-path_ratios = "~/github/dIEM/data/Ratios_20191108_CSV.csv"
+path_ratios = "Y:/Untargeted\ Metabolomics/Algoritme/dIEM/dIEM-main/data/Ratios_20191108_CSV.csv"
 
 
 
