@@ -19,7 +19,7 @@ library(gghighlight)
 library(sys)
 
 rm(list = ls())
-w <- 0.5 # aantal secondes dat hij tussendoor wach
+w <- 1.5 # aantal secondes dat hij tussendoor wach
 shorter <- 0
 low_memory <- 1
 sink(file="log.txt")
@@ -43,12 +43,15 @@ s <- 1 #suffix for filenames
 # create new output folder and set as output directory.
 dir.create(file.path(path_output, run_name))
 output_dir <- paste0(path_output,"/",run_name)
-cat (paste("directory made:",output_dir, sep=""))
 able_to_copy <- file.copy("config.R",output_dir)
 if (able_to_copy) {
   cat(paste0("\n config file successfully copied to ",output_dir))
 } else {
-  cat("\n ---- Warning: please use a new run name for every run. Because it could not copy config.R to output folder. \n")
+  cat("\n ---- Warning: please use a new run name for every run. Now, a time-stamp is added to the runname. \n")
+  run_name <- paste0(run_name,"_",gsub("CET","",gsub(" |-|:", "",Sys.time())))
+  dir.create(file.path(path_output, run_name))
+  output_dir <- paste0(path_output,"/",run_name)
+  able_to_copy <- file.copy("config.R",output_dir)
 }
 cat(paste0("\n config file successfully copied to ",output_dir," = ",able_to_copy))
 # Load the excel file.
@@ -224,7 +227,7 @@ Sys.sleep(w)
 ########## STEP # 4 #########      Run the algorithm
 ############################# in: algoritm, path_expected, Zscore ||| out: ProbScore0 (+file)
 #############################
-# This script....
+
 
 # Zscore <- ObsZscore
 if (algorithm == 1){
@@ -285,8 +288,8 @@ for (pt in 2:ncol(ProbScore0)) {
 
 disRank <- ProbScore0
 disRank[2:ncol(disRank)] <- lapply(2:ncol(disRank), function(x) as.numeric(ordered(-disRank[1:nrow(disRank),x])))
-# col names aanpassen! van _Zscore naar niks
-
+# col names aanpassen van _Zscore naar _ProbScore, omdat het geen Zscore meer is.
+names(ProbScore0) <- gsub("_Zscore","_ProbScore",names(ProbScore0))
 
 write.xlsx(ProbScore0, paste0(output_dir,"/",run_name,"_algoritme_output.xlsx"))
 if (exists("Expected") & (length(disRank)==length(ProbScore0))) {
@@ -454,7 +457,7 @@ able_to_copy <- file.copy("log.txt",paste0(output_dir, "/log_",run_name,".txt"))
 if (able_to_copy) {
   cat(paste0("\n log file successfully copied to ",output_dir))
 } else {
-  cat("\n ---- Warning: please use a new run name for every run. Because it could not copy log file to output folder. \n")
+  cat("\n ---- Warning: please use a new run name for every run. \n")
   file.copy("log.txt",paste0(output_dir, "/log_",run_name,"_____read_warning.txt"))
 }
 beep(1)
