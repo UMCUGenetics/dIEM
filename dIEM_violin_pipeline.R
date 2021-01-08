@@ -34,7 +34,7 @@ if (exists("run_name")) {
 } else {
   cat("\n Error: Could not find a config file. please check if working directory is set in 'Session'. \n ")
 }
-s <- 1 #suffix for filenames
+
 
 #############################
 ########## STEP # 1 #########      Preparation
@@ -206,7 +206,7 @@ Zscore_all <- Combined[,c(1:2,(nrcontr+nrpat+5):(2*(nrcontr+nrpat)+4))]
 # _Ratios: full dataframe, with intensities, intensity ratios & zscores and zscores ratios
 #write.csv(Combined, file=paste(output_dir,"/",run_name,"_Ratios_CSV.csv",sep=""))
 # _inputshiny: only zscores and zscores of ratio hmdb's, to be used as input for algorithm shiny app
-write.table(Zscore,file=paste(output_dir,"/",run_name,"_inputshiny_CSV.csv",sep=""),quote=FALSE,sep=";",row.names=FALSE)
+write.table(Zscore,file=paste(output_dir,"/inputshiny_",run_name,"_CSV.csv",sep=""),quote=FALSE,sep=";",row.names=FALSE)
 
 
 if (exists("Combined") & (length(Zscore)<length(Zscore_all))) {
@@ -291,7 +291,7 @@ disRank[2:ncol(disRank)] <- lapply(2:ncol(disRank), function(x) as.numeric(order
 # col names aanpassen van _Zscore naar _ProbScore, omdat het geen Zscore meer is.
 names(ProbScore0) <- gsub("_Zscore","_ProbScore",names(ProbScore0))
 
-write.xlsx(ProbScore0, paste0(output_dir,"/",run_name,"_algoritme_output.xlsx"))
+write.xlsx(ProbScore0, paste0(output_dir,"/algoritme_output_",run_name,".xlsx"))
 if (exists("Expected") & (length(disRank)==length(ProbScore0))) {
   cat("\n ### Step 4 # Run the algorithm is done.\n \n ")
 } else {
@@ -416,10 +416,10 @@ lapply(patient_list, function(pt) {
   i_tot <- 48
   plot_height <- 0.5 * i_tot
   if (pt=="all"){
-    pdf(paste0(output_dir,"/", pt, "_overview_",s,".pdf"),onefile = TRUE,
+    pdf(paste0(output_dir,"/", pt, "e_patienten_overview.pdf"),onefile = TRUE,
         width = 7, height = plot_height) # create the PDF device
   } else {
-  pdf(paste0(output_dir,"/", pt, "_stoftesten_",s,".pdf"),onefile = TRUE,
+  pdf(paste0(output_dir,"/", pt, ".pdf"),onefile = TRUE,
       width = 5, height = plot_height) # create the PDF device
   }
   c = 0
