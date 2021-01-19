@@ -1,0 +1,27 @@
+HMDB_code	HMDB_name
+HMDB00263	Phosphoenolpyruvate
+HMDB00130	Homogentisate
+HMDB60003	Isovanillic acid
+HMDB00484	Vanillate
+HMDB00072	Aconitate
+HMDB59727	2,4-Dimethyladipic acid
+HMDB00893	Suberic acid
+HMDB00707	3-(4-Hydroxyphenyl)pyruvate
+HMDB01879	Aspirin
+HMDB02643	3-(3-hydroxyphenyl)-;3-hydroxypropanoicacid
+HMDB00755	3-(4-Hydroxyphenyl)lactate
+HMDB00807	3-Phospho-glycerate
+HMDB00784	Azelaic acid
+HMDB11717	Nonate
+HMDB00325	3-Hydroxysubericacid
+HMDB00094	Citrate
+HMDB00193	Isocitrate
+HMDB00379	2-Methylcitrate
+HMDB01451	Lipoate
+HMDB00663	Glucarate
+HMDB11714	Vanilpyruvicacid
+HMDB00913	Vanillacticacid
+HMDB00350	3-Hydroxysebacicacid
+HMDB00210	Pantothenate
+HMDB00830	Neuraminic acid
+HMDB00230	N-Acetylneuraminate

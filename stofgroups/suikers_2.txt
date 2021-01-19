@@ -1,0 +1,26 @@
+HMDB_code	HMDB_name
+HMDB00247	Sorbitol
+HMDB00107	Galactitol
+HMDB00765	Mannitol
+HMDB33750	Perseitol
+HMDB00215	N-Acetyl-glucosamine
+HMDB01548	Ribose 5-phosphate
+HMDB00618	Ribulose 5-phosphate
+HMDB00645	alpha-Galactose 1-phosphate
+HMDB00124	Fructose 6-phosphate
+HMDB01401	Glucose 6-phosphate
+HMDB05831	Sorbitol 6-phosphate
+HMDB01068	Sedoheptulose 7-phosphate
+HMDB00814	N-Acetyl-glucosamine 6-sulfate
+HMDB03514	alpha-Glucose 1,6-bisphosphate
+HMDB01058	Fructose 1,6-bisphosphate
+HMDB02923	Isomaltose
+HMDB00186	Lactose
+HMDB00740	Lactulose
+HMDB00163	Maltose
+HMDB00048	Melibiose
+HMDB00258	Sucrose
+HMDB00280	5-Phospho-alpha-;ribose 1-diphosphate
+HMDB01262	Maltotriose
+HMDB03213	Raffinose
+HMDB00286	UDP-glucose

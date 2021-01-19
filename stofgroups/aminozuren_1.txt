@@ -1,0 +1,26 @@
+HMDB_code	HMDB_name
+HMDB00148	L-Glutamic acid
+HMDB02205	L-Homocysteic acid
+HMDB00182	L-Lysine
+HMDB00684	L-Kynurenine
+HMDB00168	L-Asparagine
+HMDB00177	L-Histidine
+HMDB00929	L-Tryptophan
+HMDB00167	L-Threonine
+HMDB00719	L-Homoserine
+HMDB04041	L-Allothreonine
+HMDB00641	L-Glutamine
+HMDB02005	Methionine sulfoxide
+HMDB00158	L-Tyrosine
+HMDB00904	Citrulline
+HMDB00939	S-Adenosylhomocysteine
+HMDB00187	L-Serine
+HMDB00214	Ornithine
+HMDB00517	L-Arginine
+HMDB00161	L-Alanine
+HMDB00271	Sarcosine
+HMDB00716	L-Pipecolic acid
+HMDB00099	L-Cystathionine
+HMDB00172	L-Isoleucine
+HMDB00557	L-Alloisoleucine
+HMDB00687	L-Leucine

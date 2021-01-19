@@ -1,0 +1,22 @@
+HMDB_code	HMDB_name
+HMDB00552	C6-DC-carnitine;3-Methylglutarylcarnitine
+HMDB13164	C12-OH-carnitine;2-Hydroxylauroylcarnitine
+HMDB13331	C14:2-carnitine;3, 5-Tetradecadiencarnitine
+HMDB02014	C14:1-carnitine;Tetradecenoylcarnitine
+HMDB05066	C14-carnitine;Tetradecanoylcarnitine
+HMDB0240724	C8-DC-carnitine;Suberoyl-L-carnitine
+HMDB61640	C14-OH-carnitine;3-Hydroxytetradecanoyl carnitine
+HMDB13207	C16:1-carnitine;Hexadecenoylcarnitine
+HMDB00222	C16-carnitine;L-Palmitoylcarnitine
+HMDB13333	C16:1-OH-carnitine;hydroxyhexadecenoyl-L-carnitine
+HMDB61642	C16-OH-carnitine;3-hydroxyhexadecanoyl carnitine
+HMDB06469	C18:2-carnitine;Linoleyl carnitine
+HMDB05065	C18:1-carnitine;Oleoylcarnitine
+HMDB00848	C18-carnitine;Stearoylcarnitine
+HMDB13327	C12-DC-carnitine;Dodecanedioylcarnitine
+HMDB13154	C18-OH-carnitine;12-Hydroxy-12-octadecanoylcarnitine
+HMDB06831	3-Dehydroxycarnitine;4-Butyrobetaine
+HMDB12154	3-Dehydrocarnitine
+HMDB06455	C20:4-carnitine;Arachidonylcarnitine
+HMDB06460	C20-carnitine;Arachidylcarnitine
+HMDB06509	C24:1-carnitine;Nervonylcarnitine

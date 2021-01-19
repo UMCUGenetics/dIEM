@@ -1,0 +1,31 @@
+HMDB_code	HMDB_name
+HMDB00299	Xanthosine
+HMDB00788	Orotidine
+HMDB01173	5'-Methylthioadenosine
+HMDB01563	1-methylguanosine
+HMDB02044	8-Hydroxyguanosine
+HMDB04824	N2-N2-Dimethylguanosine
+HMDB00288	UMP
+HMDB11616	2',3'-Cyclic AMP
+HMDB01314	3',5'-Cyclic GMP
+HMDB00045	AMP
+HMDB00175	IMP
+HMDB01397	GMP
+HMDB00912	Succinyladenosine
+HMDB01000	dUDP
+HMDB01546	CDP
+HMDB00295	UDP
+HMDB01372	Thiamin diphosphate
+HMDB01341	ADP
+HMDB01201	GDP
+HMDB00998	dCTP
+HMDB00538	ATP
+HMDB01273	GTP
+HMDB00902	NAD+
+HMDB01487	NADH
+HMDB00221	NADPH
+HMDB01155	P1,P3-Bis(5'-adenosyl)-;triphosphate
+HMDB01211	P1,P4-Bis(5'-adenosyl)-;tetraphosphate
+HMDB02185	3-trans-5-cis-Octadienoyl-CoA
+HMDB01192	Diadenosinepentaphosphate
+HMDB01282	Diadenosinehexaphosphate
