@@ -19,11 +19,13 @@ library(gghighlight)
 library(sys)
 
 rm(list = ls())
-w <- 1.5 # aantal secondes dat hij tussendoor wach
+w <- 0.1 # aantal secondes dat hij tussendoor wach
 shorter <- 0
-low_memory <- 1
+low_memory <- 0
 sink(file="log.txt")
-
+top <- 5
+threshold_IEM = 5
+ratios_cutoff = -5
 #############################
 ########## STEP # 0 #########      config settings
 #############################
@@ -88,7 +90,7 @@ nrpat <- length(grep("P",names(dims2)))/2     # Number of patient samples
 if (nrcontr + nrpat != length(grep("_Zscore", names(dims2)))) {
   cat("Error: there aren't as many intensities listed as Zscores")
 }
-cat(paste0(nrcontr, " controls \n",nrpat," patients \n"))
+cat(paste0("\n ",nrcontr, " controls \n",nrpat," patients \n"))
 
 # Get the columns HMDB_code and HMDB_name to the beginning. 
 dims2 <- select(dims2, c(HMDB_code, HMDB_name), everything())
@@ -290,8 +292,13 @@ disRank <- ProbScore0
 disRank[2:ncol(disRank)] <- lapply(2:ncol(disRank), function(x) as.numeric(ordered(-disRank[1:nrow(disRank),x])))
 # col names aanpassen van _Zscore naar _ProbScore, omdat het geen Zscore meer is.
 names(ProbScore0) <- gsub("_Zscore","_ProbScore",names(ProbScore0))
-
-write.xlsx(ProbScore0, paste0(output_dir,"/algoritme_output_",run_name,".xlsx"))
+#conditionalFormatting(ProbScore0)
+#write.xlsx(ProbScore0, paste0(output_dir,"/algoritme_output_",run_name,".xlsx"))
+wb <- createWorkbook()
+addWorksheet(wb, "Probability Scores")
+writeData(wb, "Probability Scores", ProbScore0)
+conditionalFormatting(wb, "Probability Scores", cols = 2:ncol(ProbScore0), rows = 1:nrow(ProbScore0), type = "colourScale", style = c("white","#FFFDA2","red"), rule = c(1, 10, 100))
+saveWorkbook(wb, file = paste0(output_dir,"/algoritme_output_",run_name,".xlsx"), overwrite = TRUE)
 if (exists("Expected") & (length(disRank)==length(ProbScore0))) {
   cat("\n ### Step 4 # Run the algorithm is done.\n \n ")
 } else {
@@ -299,12 +306,18 @@ if (exists("Expected") & (length(disRank)==length(ProbScore0))) {
 }
 #cat("### Step 4 # Run the algorithm is done.\n")
 if (low_memory == 1) {
-  rm(Rank, disRank, Exp_Metabscore,Exp_Rank,Exp_Zscores,Expected,Exp_Zscores0,ProbScore,dup,uni,Wscore,Ratios)
+  rm(Rank, Exp_Metabscore,Exp_Rank,Exp_Zscores,Expected,Exp_Zscores0,ProbScore,dup,uni,Wscore,Ratios)
 }
+rm(wb)
 }
-
-beep("coin")
 Sys.sleep(w)
+
+
+# Select the metabolites that are associated with the top 5 (or 3) highest scoring IEM, for each patient
+
+
+
+
 #############################
 ########## STEP # 5 #########      Make violin plots
 ############################# in: algorithm / Zscore, violin, nrcontr, nrpat, Data, path_textfiles, zscore_cutoff, xaxis_cutoff, top_diseases, top_metab, output_dir ||| out: pdf file
@@ -321,69 +334,103 @@ names(Zscore) <- gsub("HMDB.code","HMDB_code", names(Zscore) )
 summed <- Zscore[-2] # remove the HMDB.name column
 names(summed) <- gsub("_Zscore", "", names(summed)) # remove the _Zscore from columnnames
 
-
+# Make a patient list so it can be looped over later in lapply.
 patient_list <- names(summed)
-patient_list[1] <- "all"
+patient_list[1] <- "alle"
+patient_list2 <- gsub("alle_IEM","alle_uitgerekt",paste0(patient_list, "_IEM"))
+patient_list <- c(patient_list, patient_list2)
+# Find all text files in the given folder, which contain metabolite lists of which
+# each file will be a page in the pdf with violin plots.
 stofgroup_files <- list.files(path=path_txtfiles, pattern="*.txt", full.names=FALSE, recursive=FALSE)
 metab.list0 <- list()
 index = 0
 cat("making plots from the input files:")
+# open the text files and add each to a list of dataframes (metab.list0)
 for (infile in stofgroup_files) {
   index = index + 1
   metab.list1 <- unique(read.table(paste0(path_txtfiles,"/",infile), sep = "\t", header = TRUE, quote=""))
   metab.list0[[index]] <- metab.list1
   cat(paste0("\n",infile))
 }
+# reduce the columns from the expected df for further use and remove double 
+# metabolites per disease.
+Expected_red <- Expected[,c(5,14,13,18)]
+Expected_red <- Expected_red[!duplicated(Expected_red[,c(1,2)]),]
 
-make_plots <- function(metab.list,stoftest,pt,zscore_cutoff,xaxis_cutoff) {
+make_plots <- function(metab.list,stoftest,pt,zscore_cutoff,xaxis_cutoff,ThisProbScore,ratios_cutoff) {
   i_tot <- nrow(metab.list)
-  #moi <- summed[summed$HMDB_code %in% metab.list[[1]], ]
-  #moi <- summed[summed$HMDB_code %in% metab.list$HMDB_code, ]
-  #metab.list <- metab.list0[[1]]
+  # Filter summed on the metabolites of interest (moi)
   joined <- inner_join(metab.list, summed, by = "HMDB_code")
-  
-  moi <- joined[-2]
-  moi_names <- joined[-1]
-  #moi_names <- merge(metab.list, summed, by = "HMDB_code")[-1]
+  moi <- joined[,-2]
+  moi_names <- joined[,-1]
+  # remove "_Zscore" from col names
   names(moi_names) <- gsub("_Zscore", "", names(moi_names))
   names(moi) <- gsub("_Zscore", "", names(moi))
+  # melt the dataframe because that is easily plotted.
   moi_m <- melt(moi_names, id.vars = "HMDB_name")
+  # collapse all compounds with the same zscore, as they are isobaric compounds
+  # (= different molecular formula, same nominal mass)
   moi_m<- aggregate(HMDB_name ~ variable+value, moi_m, paste0, collapse = "\n")
+  # make selection of scores higher than the cut-off that will be colored according
+  # to their values. They will be plotted according to their values in moi_m
   group_highZ <- moi_m %>%
     group_by(value) %>% 
     filter(value > zscore_cutoff) %>%
     ungroup()
-  
+  # change all values above the xaxis cutoff to the cut-off value. So that
+  # all plotted data is within a shorter range on the x-axis.
   moi_m_max20 <- moi_m
   moi_m_max20$value <- as.numeric(lapply(moi_m$value, function(x) ifelse(x > xaxis_cutoff, as.numeric(xaxis_cutoff), x)))
-  
+  # Because the range of diagnostic ratios is often far below zero, change all
+  # values below the xaxis cutoff to the cut-off value to prevent a very long
+  # x-axis in the plots with other metabolites (in IEM plots).
+  if (endsWith(pt,"_IEM")){
+    moi_m_max20$value <- as.numeric(lapply(moi_m_max20$value, function(x) ifelse(x < ratios_cutoff, as.numeric(ratios_cutoff), x)))
+  }
+  # 
   group_highZ_max20 <- moi_m_max20 %>%
     group_by(value) %>% 
     filter(value > zscore_cutoff) %>%
     ungroup()
+
   
-  if (pt!="all"){
+  if (!startsWith(pt,"all")){
+    # patient one by one
+    pt <- gsub("_IEM", "", pt)
     pt_colname <- pt
     pt_data <- moi_m[which(moi_m$variable==pt_colname),]
     pt_data_max20 <- moi_m_max20[which(moi_m_max20$variable==pt_colname),]
     pt_values <- pt_data$value
-    colors <- c("#b7355d", "#7435b7", "#3592b7","#35b740","#e4a010","#ffff00")
-    
+    #colors <- c("#b7355d", "#7435b7", "#3592b7","#35b740","#f8f32b","#e4a010")
+    colors <- c("#4DE900", "#00B0F0", "#504FFF","#A704FD","#F36265","#DA0641")
+    #             green     blue      blue/purple purple    orange    red
     plot_height <- 80 * i_tot
     file_png <- paste0(output_dir,"/", pt, "_",stoftest,"_",i,".png")
-    
-    g <- ggplot(moi_m_max20, aes(x=value, y=HMDB_name, color = value))+
-      geom_violin(scale="width")+
-      geom_point(data = pt_data_max20, aes(color=pt_data$value),size = 3.5,shape=21, fill="white")+
-      geom_jitter(data = group_highZ_max20, aes(color=group_highZ$value), size = 1.5, position = position_dodge(1.5))+ #,colour = "#3592b7" 
-      scale_fill_gradientn(colors = colors,values = NULL,space = "Lab",na.value = "grey50",guide = "colourbar",aesthetics = "colour")+
-      labs(x = "Z-scores",y = "Metabolites",title = paste0("Results for patient ",pt), subtitle = paste0(stoftest,"\nZ-score > ",zscore_cutoff))+
-      geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)
+    if (ThisProbScore==0){
+      
+      g <- ggplot(moi_m_max20, aes(x=value, y=HMDB_name, color = value))+
+        geom_violin(scale="width")+
+        geom_point(data = pt_data_max20, aes(color=pt_data$value),size = 3.5,shape=21, fill="white")+
+        geom_jitter(data = group_highZ_max20, aes(color=group_highZ$value), size = 1.5, position = position_dodge(1.5))+ #,colour = "#3592b7" 
+        scale_fill_gradientn(colors = colors,values = NULL,space = "Lab",na.value = "grey50",guide = "colourbar",aesthetics = "colour")+
+        labs(x = "Z-scores",y = "Metabolites",title = paste0("Results for patient ",pt), subtitle = paste0(stoftest,"\nZ-score > ",zscore_cutoff))+
+        geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)
+    } else {
+      
+      g <- ggplot(moi_m_max20, aes(x=value, y=HMDB_name, color = value))+
+        geom_violin(scale="width")+
+        geom_point(data = pt_data_max20, aes(color=pt_data$value),size = 3.5,shape=21, fill="white")+
+        geom_jitter(data = group_highZ_max20, aes(color=group_highZ$value), size = 1.5, position = position_dodge(1.5))+ #,colour = "#3592b7" 
+        scale_fill_gradientn(colors = colors,values = NULL,space = "Lab",na.value = "grey50",guide = "colourbar",aesthetics = "colour")+
+        labs(x = "Z-scores",y = "Metabolites",title = paste0("Algorithm results for patient ",pt), subtitle = paste0("Disease: ",stoftest,"\nProbability Score = ",format(round(ThisProbScore, 2), nsmall = 2)))+
+        geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)
+    }
     print(g)
   }
   
-  if (pt=="all"){
-    colors <- c("#b7355d", "#7435b7", "#3592b7","#35b740","#e4a010","#ffff00")
+  if (startsWith(pt,"all")){
+    # overview plots
+    colors <- c("#b7355d", "#7435b7", "#3592b7","#35b740","#f8f32b","#e4a010")
     plot_height <- 80 * i_tot + (i_tot/(nrow(group_highZ) *0.25))*5
     plot_width <- 800+(max(group_highZ$value)/2)
     file_png <- paste0(output_dir,"/", pt, "_",stoftest,"_fullaxis_",i,".png")
@@ -409,39 +456,93 @@ make_plots <- function(metab.list,stoftest,pt,zscore_cutoff,xaxis_cutoff) {
 
   }
 }
+n <- 0
+i_tot <- 24
+plot_height <- 0.40 * i_tot
+plot_width <- 6
+cat(paste0("\n **** this run: ",plot_width, " x ", plot_height,". " ))
 
 lapply(patient_list, function(pt) {
-  # for each patient, go into the for loop for as many stofgroups there are.
+  # for each patient, go into the for loop for as many text files there are.
   cat(paste0("\n","For ",pt,", done with plot nr. "))
-  i_tot <- 48
-  plot_height <- 0.5 * i_tot
-  if (pt=="all"){
-    pdf(paste0(output_dir,"/", pt, "e_patienten_overview.pdf"),onefile = TRUE,
-        width = 7, height = plot_height) # create the PDF device
-  } else {
-  pdf(paste0(output_dir,"/", pt, ".pdf"),onefile = TRUE,
-      width = 5, height = plot_height) # create the PDF device
-  }
+
+  #plot_height <- 0.40 * i_tot
+  #plot_width <- 6
+  #cat(paste0("\n **** this run: ",plot_width, " x ", plot_height,". " ))
+
   c = 0
-  # Filter summed on the metabolites of interest (moi)
-  for (metab.list in metab.list0){
-    c = c + 1
-    stoftest <- gsub(".txt","",stofgroup_files[c])
-    metab.list$HMDB_name <- gsub(';','\n',metab.list$HMDB_name)
-    make_plots(metab.list, stoftest, pt, zscore_cutoff, xaxis_cutoff)
-    if (c%%3==0){
-      cat(paste0(c," .."))
+  #n = 0 
+  
+  if (endsWith(pt,"_IEM")) {
+    n <<- n + 1
+    cat(paste0("n",n))
+    top_IEM <- c()
+    ProbScore_top_IEM <- c()
+    integer_list <- c(1:top)
+    IEMs <- disRank[disRank[[n+1]] %in% integer_list,][[1]]
+    for (IEM in IEMs) {
+      ProbScore_IEM <- ProbScore0[which(ProbScore0$Disease==IEM),(n+1)]
+      if (ProbScore_IEM>=threshold_IEM){
+        top_IEM <- c(top_IEM, IEM)
+        ProbScore_top_IEM <- c(ProbScore_top_IEM, ProbScore_IEM)
+      }
+    }
+    l <- length(top_IEM)
+    pdf(paste0(output_dir,"/", pt, "_top" , l , ".pdf"),onefile = TRUE,
+        width = plot_width, height = plot_height) # create the PDF device
+    #If ProbScore_top_IEM is an empty list, don't continue to make_plots.
+    if (length(top_IEM)==0){
+      # If no Prob scores were above set threshold (5), send to log file
+      cat(paste0(pt," had no ProbScores higher than ",threshold_IEM))
+    } else {
+      
+      # Sorting from high to low, both ProbScore_top_IEM as well as top_IEM.
+      ind <- order(-ProbScore_top_IEM)
+      ProbScore_top_IEM_s <- ProbScore_top_IEM[ind]
+      top_IEM_s <- top_IEM[ind]
+      # getting metabolites for each top_IEM disease exactly like in metab.list0
+      dis_list <- Expected_red[Expected_red$Disease %in% top_IEM_s,]
+      dis_list <- setDT(dis_list, key = "Disease")[top_IEM_s]
+      dis_list0 <- split(dis_list, f = dis_list$Disease)
+      d = 0
+      # forloop over metab.list0 homolog
+      for (dis in dis_list0){
+        d = d + 1
+        cat(paste0("d",d))
+        disease <- dis[[1]][1]
+        dis <- dis[,-c(1,4)]
+        names(dis) <- gsub("HMDB.code", "HMDB_code", gsub("Metabolite", "HMDB_name", names(dis) ) )
+        ThisProbScore <- ProbScore_top_IEM_s[d]
+        make_plots(dis,disease,pt,zscore_cutoff,xaxis_cutoff,ThisProbScore,ratios_cutoff)
+      }
+    }
+  } else {
+    if (startsWith(pt,"all")){
+      pdf(paste0(output_dir,"/", pt, "_patienten_overview.pdf"),onefile = TRUE,
+          width = plot_width, height = plot_height) # create the PDF device
+    } else {
+      pdf(paste0(output_dir,"/", pt, ".pdf"),onefile = TRUE,
+          width = plot_width, height = plot_height) # create the PDF device
+    }
+    for (metab.list in metab.list0){
+      ThisProbScore = 0
+      c = c + 1
+      stoftest <- gsub(".txt","",stofgroup_files[c])
+      metab.list$HMDB_name <- gsub(';','\n',metab.list$HMDB_name)
+      make_plots(metab.list, stoftest, pt, zscore_cutoff, xaxis_cutoff,ThisProbScore,ratios_cutoff)
+      if (c%%3==0){
+        cat(paste0(c," .."))
+      }
     }
   }
   k <- dev.off()
+  
 })
 outputfiles <- list.files(path=paste0(path_output,"/",run_name), pattern="*.pdf", full.names=FALSE, recursive=FALSE)
-if (exists("stofgroup_files") & exists("metab.list1") & (length(outputfiles)==(nrpat+1))) {
+if (exists("stofgroup_files") & exists("metab.list1") & (length(outputfiles)>=(nrpat+2))) {
   cat("\n ### Step 5 # Make the violin plots is done. \n ")
-
 } else {
-  cat("\n Error: Could not make violin plots or output folder already existed. pdf's made: \n ")
-
+  cat("\n Error: Could not make all violin plots or output folder already existed. pdf's made: \n ")
 }
 #cat("### Step 5 # Make the violin plots is done.\n")
 cat("\n violin plots pdf files made: ")
@@ -455,9 +556,9 @@ cat(paste0("\n All steps are executed, find output files here:\n",output_dir))
 sink()
 able_to_copy <- file.copy("log.txt",paste0(output_dir, "/log_",run_name,".txt"))
 if (able_to_copy) {
-  cat(paste0("\n log file successfully copied to ",output_dir))
+  cat(paste0("\n log file successfully copied to ",output_dir,"\n\n"))
 } else {
-  cat("\n ---- Warning: please use a new run name for every run. \n")
+  cat("\n ---- Warning: Could not copy log file. Look in working directory folder for a log.txt file. \n")
   file.copy("log.txt",paste0(output_dir, "/log_",run_name,"_____read_warning.txt"))
 }
 beep(1)
