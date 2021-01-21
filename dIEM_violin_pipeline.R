@@ -19,9 +19,9 @@ library(gghighlight)
 library(sys)
 
 rm(list = ls())
-w <- 0.1 # aantal secondes dat hij tussendoor wach
+w <- 2 # aantal secondes dat hij tussendoor wach
 shorter <- 0
-low_memory <- 0
+low_memory <- 1
 sink(file="log.txt")
 top <- 5
 threshold_IEM = 5
@@ -306,7 +306,7 @@ if (exists("Expected") & (length(disRank)==length(ProbScore0))) {
 }
 #cat("### Step 4 # Run the algorithm is done.\n")
 if (low_memory == 1) {
-  rm(Rank, Exp_Metabscore,Exp_Rank,Exp_Zscores,Expected,Exp_Zscores0,ProbScore,dup,uni,Wscore,Ratios)
+  rm(Rank, Exp_Metabscore,Exp_Rank,Exp_Zscores,Exp_Zscores0,ProbScore,dup,uni,Wscore,Ratios)
 }
 rm(wb)
 }
