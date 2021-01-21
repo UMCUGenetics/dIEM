@@ -1,13 +1,11 @@
 #For untargeted metabolomics, this tool calculates probability scores for 
 # metabolic disorders. In addition, it provides visual support with violin plots 
 # of the mass spectrometry (DI-HRMS) measurements for the lab specialists.
-
-
-
-#packused <- list.functions.in.file("dIEM_violin_pipeline.R", alphabetic = TRUE)
-
-
-
+# Input needed: 
+# 1. excel file in which metabolites are listed with their intensities among
+#    controls (with C in samplename) and patients (with P in samplename) and their
+#    corresponding zscores. 
+# 2. All files from github: https://github.com/UMCUGenetics/dIEM
 
 library(beepr)
 library(dplyr)
@@ -19,22 +17,25 @@ library(gghighlight)
 library(sys)
 
 rm(list = ls())
-w <- 2 # aantal secondes dat hij tussendoor wach
-shorter <- 0
-low_memory <- 1
-sink(file="log.txt")
-top <- 5
-threshold_IEM = 5
-ratios_cutoff = -5
-#############################
-########## STEP # 0 #########      config settings
-#############################
+w <- 0.5 # seconds that system waits in between steps
+shorter <- 0 # shorter list of patients
+low_memory <- 0 # if RStudio crashes during script
+top <- 5 # number of diseases that score highest in algorithm to plot
+threshold_IEM = 5 # probability score cut-off for plotting the top diseases
+ratios_cutoff = -5 # z-score cutoff of axis on the left for top diseases
 
+
+#############################
+########## STEP # 0 #########      load config settings
+#############################
+sink(file="log.txt")
 source("config.R")
+start_time <- Sys.time()
+cat(paste0("Running dIEM violin pipeline, start time: \t",start_time,"\n"))
 if (exists("run_name")) {
-  cat("\n The config file is succesfully loaded. \n ")
+  cat("\nThe config file is succesfully loaded from working directory.")
 } else {
-  cat("\n Error: Could not find a config file. please check if working directory is set in 'Session'. \n ")
+  cat("\n**** Error: Could not find a config file. please check if working directory is set in 'Session'. \n")
 }
 
 
@@ -47,24 +48,25 @@ dir.create(file.path(path_output, run_name))
 output_dir <- paste0(path_output,"/",run_name)
 able_to_copy <- file.copy("config.R",output_dir)
 if (able_to_copy) {
-  cat(paste0("\n config file successfully copied to ",output_dir))
+  cat(paste0("\nconfig file successfully copied to:\n -> ",output_dir))
 } else {
-  cat("\n ---- Warning: please use a new run name for every run. Now, a time-stamp is added to the runname. \n")
+  # If the config file could not be copied, the run name probably already exists.
+  cat("\n---- Warning: please use a new run name for every run. Now, a time-stamp is added to the runname. \n")
+  # Thus, add timestamp to run name.
   run_name <- paste0(run_name,"_",gsub("CET","",gsub(" |-|:", "",Sys.time())))
   dir.create(file.path(path_output, run_name))
   output_dir <- paste0(path_output,"/",run_name)
   able_to_copy <- file.copy("config.R",output_dir)
+  cat(paste0("\nconfig file successfully copied to ",output_dir," = ",able_to_copy))
 }
-cat(paste0("\n config file successfully copied to ",output_dir," = ",able_to_copy))
+
 # Load the excel file.
 dimsxls <- readWorkbook(xlsxFile = path_DIMSfile, sheet = 1, startRow = header_row)
 if (exists("dimsxls")) {
-  cat("\n The excel file is succesfully loaded. \n ")
+  cat(paste0("\nThe excel file is succesfully loaded:\n -> ",path_DIMSfile))
 } else {
-  cat("\n Error: Could not find an excel file. Please check if path to excel file is correct in config.R . \n ")
+  cat(paste0("\n\n**** Error: Could not find an excel file. Please check if path to excel file is correct in config.R:\n -> ",path_DIMSfile,"\n"))
 }
-cat (paste("\n loaded",path_DIMSfile, sep=""))
-#cat("\n ### Step 1 # Preparation is done.\n")
 beep("coin")
 
 Sys.sleep(w)
@@ -78,19 +80,17 @@ Sys.sleep(w)
 # [plots] [C] [P] [summary columns] [C_Zscore] [P_Zscore]
 
 # Output: 
-# Data dataframe 
+# dims2 dataframe 
 # "_CSV.csv" file that is suited for the algorithm in shiny.
-
-
 
 dims2 <- dimsxls
 # Calculate the number of C's and P's in column names to extract the following numbers:
 nrcontr <- length(grep("C",names(dims2)))/2   # Number of control samples
 nrpat <- length(grep("P",names(dims2)))/2     # Number of patient samples
 if (nrcontr + nrpat != length(grep("_Zscore", names(dims2)))) {
-  cat("Error: there aren't as many intensities listed as Zscores")
+  cat("\n**** Error: there aren't as many intensities listed as Zscores")
 }
-cat(paste0("\n ",nrcontr, " controls \n",nrpat," patients \n"))
+cat(paste0("\n\n------------\n",nrcontr, " controls \n",nrpat," patients\n------------\n\n"))
 
 # Get the columns HMDB_code and HMDB_name to the beginning. 
 dims2 <- select(dims2, c(HMDB_code, HMDB_name), everything())
@@ -128,9 +128,9 @@ if (shorter==1){
   i <- c(3:(nrsamples+2))
 }
 if (exists("dims2") & (length(dims2)<length(dimsxls))) {
-  cat("\n ### Step 2 # Edit dims data is done.\n \n ")
+  cat("\n### Step 2 # Edit dims data is done.\n")
 } else {
-  cat("\n Error: Could not execute step 2 \n ")
+  cat("\n**** Error: Could not execute step 2 \n")
 }
 #cat("### Step 2 # Edit dims data is done.\n")
 
@@ -150,19 +150,16 @@ Sys.sleep(w)
 
 # Output:
 # "_CSV.csv" file that is suited for the algorithm, with format:
-# 
 # "_Ratios_CSV.csv" file, same file as above, but with ratio rows added.
 dims3 <- dims2
-#rm(dims2)
-
 if (ratios == 1) { # ratios in settings is 1
-cat(paste0("\n loading ratios file: \n",path_ratios))
+cat(paste0("\nloading ratios file:\n ->  ",path_ratios,"\n"))
 RatioInput<-read.csv(path_ratios,sep=';',stringsAsFactors=FALSE)
 
 # Prepare empty data frame to fill with ratios
 Ratios<-setNames(data.frame(matrix(ncol=ncol(dims3),nrow=nrow(RatioInput))),colnames(dims3))
 Ratios[,1:2]<-RatioInput[,1:2]
-### idea: test without log10 , look into expected for ratios
+### idea: test without log10, look into expected for ratios
 for (controls in c(3:(nrcontr+2),(nrcontr+3):(nrcontr+nrpat+2))) {
   Ratios[1,controls]<-log10(dims3[which(dims3[,1]=='HMDB00159'),controls]/dims3[which(dims3[,1]=='HMDB00158'),controls])
   Ratios[2,controls]<-log10(dims3[which(dims3[,1]=='HMDB00161'),controls]/dims3[which(dims3[,1]=='HMDB00182'),controls])
@@ -189,40 +186,34 @@ for (calc in 1:nrow(Ratios)) {
   Ratios[calc,(nrcontr+nrpat+3)]<-mean(as.numeric(Ratios[calc,3:(nrcontr+2)]))
   Ratios[calc,(nrcontr+nrpat+4)]<-sd(as.numeric(Ratios[calc,3:(nrcontr+2)]))
 }
+
 # Calc z-scores with the means and SD's 
 for (Zscores in (nrcontr+nrpat+5):(2*(nrcontr+nrpat)+4)) {
   for (rows in 1:nrow(Ratios)) {
     Ratios[rows,Zscores]<-(Ratios[rows,(Zscores-nrcontr-nrpat-2)]-Ratios[rows,(nrcontr+nrpat+3)])/Ratios[rows,(nrcontr+nrpat+4)]
-    #Ratios[rows,Zscores]<-(Ratios[rows,(Zscores-nrcontr-nrpat-2)]-Ratios[rows,(nrcontr+nrpat+3)])/Ratios[rows,(nrcontr+nrpat+4)]
-  }
+    }
 }
 
 # Add rows of the ratio hmdb codes to the data of zscores from the pipeline.
 Combined<-rbind.data.frame(Ratios,dims3)
 
-# explain.
+# Select only the cols with zscores of only the patients (Zscore)
 Zscore <- Combined[,c(1:2,(2*nrcontr+nrpat+5):(2*(nrcontr+nrpat)+4))]
-#Zscoretest <- Combined[,c(1:2,grep("P",colnames(Data))[-c(1:nrpat)] )]
+# And with the controls
 Zscore_all <- Combined[,c(1:2,(nrcontr+nrpat+5):(2*(nrcontr+nrpat)+4))]
-#Zscore_alltest <- Combined[,c(1:2,grep("P|C",colnames(Data))[-c(1:(nrpat+nrcontr))] )]
-# _Ratios: full dataframe, with intensities, intensity ratios & zscores and zscores ratios
-#write.csv(Combined, file=paste(output_dir,"/",run_name,"_Ratios_CSV.csv",sep=""))
-# _inputshiny: only zscores and zscores of ratio hmdb's, to be used as input for algorithm shiny app
 write.table(Zscore,file=paste(output_dir,"/inputshiny_",run_name,"_CSV.csv",sep=""),quote=FALSE,sep=";",row.names=FALSE)
 
-
+# check whether Zscore and Zscore_all are as expected: implies success of calc ratios
 if (exists("Combined") & (length(Zscore)<length(Zscore_all))) {
-  cat("\n ### Step 3 # Calculate ratios is done.\n \n ")
+  cat("\n### Step 3 # Calculate ratios is done.\n")
 } else {
-  cat("\n Error: Could not calculate ratios. Check if path to ratios-file is correct in config.R. \n ")
+  cat("\n**** Error: Could not calculate ratios. Check if path to ratios-file is correct in config.R. \n")
 }
 
-#cat("### Step 3 # Calculate ratios is done.\n")
 if (low_memory == 1) {
   rm(Zscore_all,dims2,dims3,dimsxls,Combined)
 }
 }
-
 
 Sys.sleep(w)
 #############################
@@ -234,7 +225,7 @@ Sys.sleep(w)
 # Zscore <- ObsZscore
 if (algorithm == 1){
 # Load data
-cat(paste0("\n loading expected file: \n",path_expected))
+cat(paste0("\nloading expected file:\n ->  ",path_expected,"\n"))
 Expected<-read.csv(path_expected,sep=';',stringsAsFactors=FALSE)
 
 # prepare dataframe scaffold Rank
@@ -264,8 +255,6 @@ Exp_Rank <- merge(x=Expected, y=Rank, by.x = c("HMDB.code"), by.y = c("HMDB.code
 cat("calculate rank score.\t")
 Exp_Metabscore <- cbind(Exp_Rank[order(Exp_Zscores0$HMDB.code),][,1:28],((Exp_Zscores0[order(Exp_Zscores0$HMDB.code),][-c(1:28)])/((Exp_Rank[order(Exp_Rank$HMDB.code),][-c(1:28)])*0.9)))
 
-#Exp_Metabscore <- merge(x=Expected, y=Metabscore, by = "HMDB.code")
-#Exp_Metabscore[30:ncol(Exp_Metabscore)] <- lapply(Exp_Metabscore[30:ncol(Metabscore)], function(x) ifelse((Exp_Metabscore$Change=="Increase")&(x<=0), 0, x)) 
 cat("multiplying weight score and rank score.\t")
 Wscore <- Exp_Zscores0
 Wscore[29:ncol(Exp_Metabscore)] <- Exp_Metabscore$Total_Weight*Exp_Metabscore[29:ncol(Exp_Metabscore)]
@@ -292,19 +281,20 @@ disRank <- ProbScore0
 disRank[2:ncol(disRank)] <- lapply(2:ncol(disRank), function(x) as.numeric(ordered(-disRank[1:nrow(disRank),x])))
 # col names aanpassen van _Zscore naar _ProbScore, omdat het geen Zscore meer is.
 names(ProbScore0) <- gsub("_Zscore","_ProbScore",names(ProbScore0))
-#conditionalFormatting(ProbScore0)
-#write.xlsx(ProbScore0, paste0(output_dir,"/algoritme_output_",run_name,".xlsx"))
+
+# Create conditional formatting for output excel sheet. Colors according to values.
 wb <- createWorkbook()
 addWorksheet(wb, "Probability Scores")
 writeData(wb, "Probability Scores", ProbScore0)
-conditionalFormatting(wb, "Probability Scores", cols = 2:ncol(ProbScore0), rows = 1:nrow(ProbScore0), type = "colourScale", style = c("white","#FFFDA2","red"), rule = c(1, 10, 100))
+conditionalFormatting(wb, "Probability Scores", cols = 2:ncol(ProbScore0), rows = 1:nrow(ProbScore0), type = "colourScale", style = c("white","#FFFDA2","red"), rule = c(1, 10, 100)) # middle color is yellow
 saveWorkbook(wb, file = paste0(output_dir,"/algoritme_output_",run_name,".xlsx"), overwrite = TRUE)
+# check whether ProbScore df exists and is in expected dimensions.
 if (exists("Expected") & (length(disRank)==length(ProbScore0))) {
-  cat("\n ### Step 4 # Run the algorithm is done.\n \n ")
+  cat("\n### Step 4 # Run the algorithm is done.\n\n")
 } else {
-  cat("\n Error: Could not run algorithm. Check if path to Expected csv-file is correct in config.R. \n ")
+  cat("\n**** Error: Could not run algorithm. Check if path to Expected csv-file is correct in config.R. \n")
 }
-#cat("### Step 4 # Run the algorithm is done.\n")
+
 if (low_memory == 1) {
   rm(Rank, Exp_Metabscore,Exp_Rank,Exp_Zscores,Exp_Zscores0,ProbScore,dup,uni,Wscore,Ratios)
 }
@@ -312,8 +302,6 @@ rm(wb)
 }
 Sys.sleep(w)
 
-
-# Select the metabolites that are associated with the top 5 (or 3) highest scoring IEM, for each patient
 
 
 
@@ -337,6 +325,7 @@ names(summed) <- gsub("_Zscore", "", names(summed)) # remove the _Zscore from co
 # Make a patient list so it can be looped over later in lapply.
 patient_list <- names(summed)
 patient_list[1] <- "alle"
+# add list for IEM plots 
 patient_list2 <- gsub("alle_IEM","alle_uitgerekt",paste0(patient_list, "_IEM"))
 patient_list <- c(patient_list, patient_list2)
 # Find all text files in the given folder, which contain metabolite lists of which
@@ -352,6 +341,7 @@ for (infile in stofgroup_files) {
   metab.list0[[index]] <- metab.list1
   cat(paste0("\n",infile))
 }
+cat("\n")
 # reduce the columns from the expected df for further use and remove double 
 # metabolites per disease.
 Expected_red <- Expected[,c(5,14,13,18)]
@@ -393,7 +383,6 @@ make_plots <- function(metab.list,stoftest,pt,zscore_cutoff,xaxis_cutoff,ThisPro
     filter(value > zscore_cutoff) %>%
     ungroup()
 
-  
   if (!startsWith(pt,"all")){
     # patient one by one
     pt <- gsub("_IEM", "", pt)
@@ -402,7 +391,7 @@ make_plots <- function(metab.list,stoftest,pt,zscore_cutoff,xaxis_cutoff,ThisPro
     pt_data_max20 <- moi_m_max20[which(moi_m_max20$variable==pt_colname),]
     pt_values <- pt_data$value
     #colors <- c("#b7355d", "#7435b7", "#3592b7","#35b740","#f8f32b","#e4a010")
-    colors <- c("#4DE900", "#00B0F0", "#504FFF","#A704FD","#F36265","#DA0641")
+    colors <- c("#22E4AC", "#00B0F0", "#504FFF","#A704FD","#F36265","#DA0641")
     #             green     blue      blue/purple purple    orange    red
     plot_height <- 80 * i_tot
     file_png <- paste0(output_dir,"/", pt, "_",stoftest,"_",i,".png")
@@ -460,25 +449,20 @@ n <- 0
 i_tot <- 24
 plot_height <- 0.40 * i_tot
 plot_width <- 6
-cat(paste0("\n **** this run: ",plot_width, " x ", plot_height,". " ))
+cat(paste0("\n(plot dimensions: ",plot_width, " x ", plot_height,")\n" ))
 
 lapply(patient_list, function(pt) {
   # for each patient, go into the for loop for as many text files there are.
   cat(paste0("\n","For ",pt,", done with plot nr. "))
-
-  #plot_height <- 0.40 * i_tot
-  #plot_width <- 6
-  #cat(paste0("\n **** this run: ",plot_width, " x ", plot_height,". " ))
-
   c = 0
-  #n = 0 
-  
+  # IEM violin plots:
   if (endsWith(pt,"_IEM")) {
     n <<- n + 1
     cat(paste0("n",n))
     top_IEM <- c()
     ProbScore_top_IEM <- c()
     integer_list <- c(1:top)
+    # Select the metabolites that are associated with the top 5 highest scoring IEM, for each patient
     IEMs <- disRank[disRank[[n+1]] %in% integer_list,][[1]]
     for (IEM in IEMs) {
       ProbScore_IEM <- ProbScore0[which(ProbScore0$Disease==IEM),(n+1)]
@@ -509,29 +493,34 @@ lapply(patient_list, function(pt) {
       for (dis in dis_list0){
         d = d + 1
         cat(paste0("d",d))
-        disease <- dis[[1]][1]
-        dis <- dis[,-c(1,4)]
+        disease <- dis[[1]][1] # same as stoftest for normal plots
+        dis <- dis[,-c(1,4)] # same as metab.list in normal plots
         names(dis) <- gsub("HMDB.code", "HMDB_code", gsub("Metabolite", "HMDB_name", names(dis) ) )
         ThisProbScore <- ProbScore_top_IEM_s[d]
         make_plots(dis,disease,pt,zscore_cutoff,xaxis_cutoff,ThisProbScore,ratios_cutoff)
       }
     }
   } else {
+    # normal violin plots:
     if (startsWith(pt,"all")){
+      # overview plots
       pdf(paste0(output_dir,"/", pt, "_patienten_overview.pdf"),onefile = TRUE,
           width = plot_width, height = plot_height) # create the PDF device
     } else {
+      # patient plots
       pdf(paste0(output_dir,"/", pt, ".pdf"),onefile = TRUE,
           width = plot_width, height = plot_height) # create the PDF device
     }
     for (metab.list in metab.list0){
-      ThisProbScore = 0
+      ThisProbScore = 0 # means that this is no IEM plot
       c = c + 1
-      stoftest <- gsub(".txt","",stofgroup_files[c])
+      stoftest <- gsub(".txt","",stofgroup_files[c]) # (string) stoftest name
+      # generate a new line when ; is in metabolite name.
       metab.list$HMDB_name <- gsub(';','\n',metab.list$HMDB_name)
+      # send to function
       make_plots(metab.list, stoftest, pt, zscore_cutoff, xaxis_cutoff,ThisProbScore,ratios_cutoff)
-      if (c%%3==0){
-        cat(paste0(c," .."))
+      if (c%%5==0){
+        cat(paste0(c," "))
       }
     }
   }
@@ -540,25 +529,28 @@ lapply(patient_list, function(pt) {
 })
 outputfiles <- list.files(path=paste0(path_output,"/",run_name), pattern="*.pdf", full.names=FALSE, recursive=FALSE)
 if (exists("stofgroup_files") & exists("metab.list1") & (length(outputfiles)>=(nrpat+2))) {
-  cat("\n ### Step 5 # Make the violin plots is done. \n ")
+  cat("\n\n### Step 5 # Make the violin plots is done. \n")
 } else {
-  cat("\n Error: Could not make all violin plots or output folder already existed. pdf's made: \n ")
+  cat("\n\n**** Error: Could not make all violin plots or output folder already existed. pdf's made: \n")
 }
 #cat("### Step 5 # Make the violin plots is done.\n")
-cat("\n violin plots pdf files made: ")
+cat("\nviolin plots pdf files made: ")
 cat(paste0("\n",outputfiles))
 }
 
 
 Sys.sleep(w)
 #############################
-cat(paste0("\n All steps are executed, find output files here:\n",output_dir))
+cat(paste0("\n\nAll steps are executed, find output files here:\n -> ",output_dir))
+end_time <- Sys.time()
+cat("\n\nRun ended, end time: \t")
+end_time-start_time
 sink()
 able_to_copy <- file.copy("log.txt",paste0(output_dir, "/log_",run_name,".txt"))
 if (able_to_copy) {
-  cat(paste0("\n log file successfully copied to ",output_dir,"\n\n"))
+  cat(paste0("\nlog file successfully copied to:\n -> ",output_dir,"\n\n"))
 } else {
-  cat("\n ---- Warning: Could not copy log file. Look in working directory folder for a log.txt file. \n")
+  cat("\n---- Warning: Could not copy log file. Look in working directory folder for a log.txt file. \n")
   file.copy("log.txt",paste0(output_dir, "/log_",run_name,"_____read_warning.txt"))
 }
 beep(1)
