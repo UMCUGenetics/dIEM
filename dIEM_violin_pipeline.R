@@ -515,6 +515,7 @@ if (violin == 1) {
           ThisProbScore <- ProbScore_top_IEM_s[d]
           make_plots(dis,disease,pt,zscore_cutoff,xaxis_cutoff,ThisProbScore,ratios_cutoff)
         }
+        k <- dev.off()
       }
     } else {
       cat(paste0("\n","For ",pt,", done with plot nr. "))
@@ -541,9 +542,9 @@ if (violin == 1) {
           cat(paste0(c," "))
         }
       }
-      
+      k <- dev.off()
     }
-    k <- dev.off()
+    #k <- dev.off()
     
   })
   
