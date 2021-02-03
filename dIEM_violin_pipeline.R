@@ -369,6 +369,7 @@ if (violin == 1) {
     
     # Filter summed on the metabolites of interest (moi)
     joined <- inner_join(metab.list, summed, by = "HMDB_code")
+    #joined <- inner_join(summed, metab.list, by = "HMDB_code")
     moi <- joined[,-2]
     moi_names <- joined[,-1]
     # remove "_Zscore" from col names
@@ -376,6 +377,9 @@ if (violin == 1) {
     names(moi) <- gsub("_Zscore", "", names(moi))
     # melt the dataframe because that is easily plotted.
     moi_m <- melt(moi_names, id.vars = "HMDB_name")
+    # keep the order of the metabolites in the plots the same as in the text files
+    #moi_m <- moi_m %>%
+    #  mutate( HMDB_name=factor(HMDB_name,levels=metab.list$HMDB_name ))
     # collapse all compounds with the same zscore, as they are isobaric compounds
     # (= different molecular formula, same nominal mass)
     moi_m<- aggregate(HMDB_name ~ variable+value, moi_m, paste0, collapse = "\n")
@@ -395,12 +399,17 @@ if (violin == 1) {
     if (endsWith(pt,"_IEM")){
       moi_m_max20$value <- as.numeric(lapply(moi_m_max20$value, function(x) ifelse(x < ratios_cutoff, as.numeric(ratios_cutoff), x)))
     }
+    
+    
+
+    
     # Get values that overlap with highZ and max20: i.e. 5 < z < 20
     group_highZ_max20 <- moi_m_max20 %>%
       group_by(value) %>% 
       filter(value > zscore_cutoff) %>%
       ungroup()
     
+
     if (!startsWith(pt,"all")){
       # patient one by one
       pt <- gsub("_IEM", "", pt)
@@ -422,7 +431,8 @@ if (violin == 1) {
           geom_jitter(data = group_highZ_max20, aes(color=group_highZ$value), size = 1.3*fontsize, position = position_dodge(1.5))+ #,colour = "#3592b7" 
           scale_fill_gradientn(colors = colors,values = NULL,space = "Lab",na.value = "grey50",guide = "colourbar",aesthetics = "colour")+
           labs(x = "Z-scores",y = "Metabolites",title = paste0("Results for patient ",pt), subtitle = paste0(stoftest,"\nZ-score > ",zscore_cutoff))+
-          geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)
+          geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)+
+          geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
       } else {
         # plot the metabolites of the top 5 IEMs
         g <- ggplot(moi_m_max20, aes(x=value, y=HMDB_name, color = value))+
@@ -432,7 +442,8 @@ if (violin == 1) {
           geom_jitter(data = group_highZ_max20, aes(color=group_highZ$value), size = 1.3*fontsize, position = position_dodge(1.5))+ #,colour = "#3592b7" 
           scale_fill_gradientn(colors = colors,values = NULL,space = "Lab",na.value = "grey50",guide = "colourbar",aesthetics = "colour")+
           labs(x = "Z-scores",y = "Metabolites",title = paste0("Algorithm results for patient ",pt), subtitle = paste0("Disease: ",stoftest,"\nProbability Score = ",format(round(ThisProbScore, 2), nsmall = 2)))+
-          geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)
+          geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)+
+          geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
       }
       print(g)
     }
@@ -445,7 +456,8 @@ if (violin == 1) {
         geom_violin(scale="width")+
         geom_jitter(data = group_highZ_max20,aes(color = group_highZ$variable), size = 2.5*fontsize, position = position_dodge(0.8))+ 
         labs(x = "Z-scores",y = "Metabolites",title = "Overview plot", subtitle = paste0(stoftest,"\nZ-score > ",zscore_cutoff), color = "patients")+
-        geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)
+        geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)+
+        geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
       print(g)
     }
     if (pt=="alle_volle_x-as"){
@@ -455,7 +467,8 @@ if (violin == 1) {
         geom_violin(scale="width")+
         geom_jitter(data = group_highZ,aes(color = variable), size = 2.5*fontsize, position = position_dodge(0.8))+ 
         labs(x = "Z-scores",y = "Metabolites",title = "Overview plot", subtitle = paste0(stoftest,"\nZ-score > ",zscore_cutoff), color = "patients")+
-        geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)
+        geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)+
+        geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
       print(g)
     }
   }
@@ -503,23 +516,29 @@ if (violin == 1) {
         # getting metabolites for each top_IEM disease exactly like in metab.list0
         dis_list <- Expected_red[Expected_red$Disease %in% top_IEM_s,]
         dis_list <- setDT(dis_list, key = "Disease")[top_IEM_s]
+        dis_list$Disease <- factor(dis_list$Disease, levels=unique(dis_list$Disease))
         dis_list0 <- split(dis_list, f = dis_list$Disease)
         d = 0
         # forloop over metab.list0 homolog
         for (dis in dis_list0){
           d = d + 1
-          cat(paste0("d",d))
+          
           disease <- dis[[1]][1] # same as stoftest for normal plots
           dis <- dis[,-c(1,4)] # same as metab.list in normal plots
           #names(dis) <- gsub("HMDB.code", "HMDB_code", gsub("Metabolite", "HMDB_name", names(dis) ) )
           ThisProbScore <- ProbScore_top_IEM_s[d]
+          cat(paste0("d  ",d,"\n",disease,"\t",ThisProbScore))
           make_plots(dis,disease,pt,zscore_cutoff,xaxis_cutoff,ThisProbScore,ratios_cutoff)
         }
         k <- dev.off()
       }
+      
     } else {
-      cat(paste0("\n","For ",pt,", done with plot nr. "))
+      
       # normal violin plots:
+      
+      cat(paste0("\n","For ",pt,", done with plot nr. "))
+      
       if (startsWith(pt,"all")){
         # overview plots
         pdf(paste0(output_dir,"/", pt, "_patienten_overview.pdf"),onefile = TRUE,
@@ -538,7 +557,7 @@ if (violin == 1) {
         metab.list$HMDB_name <- gsub(';','\n',metab.list$HMDB_name)
         # send to function
         make_plots(metab.list, stoftest, pt, zscore_cutoff, xaxis_cutoff,ThisProbScore,ratios_cutoff)
-        if (c%%5==0){
+        if (c%%1==0){
           cat(paste0(c," "))
         }
       }
