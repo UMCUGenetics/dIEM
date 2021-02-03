@@ -1,5 +1,6 @@
 HMDB_code	HMDB_name
 HMDB00062	vrij carnitine
+HMDB00552	C6-DC-carnitine;3-Methylglutarylcarnitine
 HMDB00201	C2-carnitine;Acetylcarnitine
 HMDB13124	C3:1-carnitine;Propenoylcarnitine
 HMDB00824	C3-carnitine;Propionylcarnitine
