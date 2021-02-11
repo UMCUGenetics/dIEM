@@ -1,0 +1,33 @@
+HMDB_code	HMDB_name
+HMDB00532	N-Acetylglycine
+HMDB00808	N-Butyrylglycine
+HMDB00709	L-Cysteinylglycine disulfide 
+HMDB13267	N-Decanoylglycine 
+HMDB00092	N,N-Dimethylglycine
+HMDB00439	2-Furoylglycine
+HMDB13010	N-Heptanoylglycine 
+HMDB00701	Hexanoylglycine
+HMDB00735	Hydroxyphenylacetylglycine 
+HMDB00730	Isobutyrylglycine
+HMDB00678	Isovalerylglycine
+HMDB13272	N-Lauroylglycine
+HMDB13246	Margaroylglycine 
+HMDB00339	2-Methylbutyrylglycine
+HMDB00459	3-Methylcrotonylglycine
+HMDB13250	Myristoylglycine 
+HMDB13279	N-Nonanoylglycine
+HMDB13631	Oleoyl glycine 
+HMDB13034	Palmitoylglycine
+HMDB13297	Pentacosanoylglycine 
+HMDB13300	Pentadecanoylglycine 
+HMDB00821	Phenylacetylglycine
+HMDB00860	Phenylpropionylglycine
+HMDB00783	Propionylglycine
+HMDB13308	Stearoylglycine 
+HMDB00953	Suberylglycine
+HMDB13310	Tetracosanoylglycine 
+HMDB00959	Tiglylglycine 
+HMDB13314	Tricosanoylglycine 
+HMDB13317	Tridecanoylglycine
+HMDB13286	N-Undecanoylglycine 
+HMDB00927	Valerylglycine 
