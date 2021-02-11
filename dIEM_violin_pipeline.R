@@ -15,6 +15,7 @@ library(openxlsx)
 library(ggplot2)
 library(gghighlight)
 library(sys)
+library(tidyr)
 
 rm(list = ls())
 w <- 0.5 # seconds that system waits in between steps
@@ -319,15 +320,16 @@ if ( algorithm == 0 ){
 if (violin == 1) {
   #Edit the DIMS output Zscores of all patients in format:
   # HMDB_code patientname1  patientname2
-  names(Zscore) <- gsub("HMDB.code","HMDB_code", names(Zscore) )
-  summed <- Zscore[-2] # remove the HMDB.name column
+  names(Zscore) <- gsub("HMDB.code","HMDB_code", gsub("HMDB.name", "HMDB_name", names(Zscore)) )
+  summed_nonames <- Zscore[-2] # remove the HMDB.name column
+  summed <- Zscore
   if (check.lists) {
     summed.c <- Zscore
   }
   names(summed) <- gsub("_Zscore", "", names(summed)) # remove the _Zscore from columnnames
   
   # Make a patient list so it can be looped over later in lapply.
-  patient_list <- names(summed)
+  patient_list <- names(summed)[-2]
   patient_list[1] <- "alle"
   # add list for IEM plots 
   patient_list2 <- gsub("alle_IEM","alle_volle_x-as",paste0(patient_list, "_IEM"))
@@ -357,52 +359,75 @@ if (violin == 1) {
   cc = 0
   for (metab.list1 in metab.list0){
     Expected_rest <- anti_join(Expected_rest, metab.list1, by='HMDB_code')
-    ### checkkkkk
+    # when checking metabolite lists is needed 
     if (check.lists) {
       cc = cc + 1
       stoftest <- gsub(".txt","",stofgroup_files[cc]) # (string) stoftest name
-      #### checkkkk
       joined.c <- inner_join(metab.list1, summed.c, by = "HMDB_code")
       check <- joined.c[,c(1:4)]
       write.xlsx(check, paste0(output_dir,"/", stoftest, "_check.xlsx"))
-      ####
     }
+    
   }
+  
+  # voeg additionele lijsten toe, rest, de top 20 hoogst scorende en top 10 laagst.
   index = index + 1 
   metab.list0[[index]] <- Expected_rest
-  stofgroup_files[index] <- "x_Rest"
+  stofgroup_files[index] <- "rest"
+  metab.list0[[index+1]] <- Expected_rest[c(1:20),]
+  stofgroup_files[index+1] <- "top20_hoogst"
+  metab.list0[[index+2]] <- Expected_rest[c(1:10),]
+  stofgroup_files[index+2] <- "top10_laagst"
   
-  make_plots <- function(metab.list,stoftest,pt,zscore_cutoff,xaxis_cutoff,ThisProbScore,ratios_cutoff) {
+  make_plots <- function(metab.list,stoftest,pt,zscore_cutoff,xaxis_cutoff,ThisProbScore,ratios_cutoff, ptcount) {
+    stoftest <- as.character(stoftest)
+    # extract the top 20 highest and top 10 lowest scoring metabolites
+    if (startsWith(stoftest, "top") & ptcount > 1) {
+      if (endsWith(stoftest, "hoogst")){
+        topX <- summed[,c(1,2,(ptcount+1))] %>% top_n(20, summed[,(ptcount+1)])
+        topX <- topX[rev(order(topX[,3])),]
+      } else {
+        topX <- summed[,c(1,2,(ptcount+1))] %>% top_n(-10, summed[,(ptcount+1)])
+        topX <- topX[order(topX[,3]),]
+      }
+      # replace the metab.list dataframe with new values
+      metab.list <- topX[-3]
+      count = 0
+      for (metab in metab.list[2]){
+        count = count + 1
+        metab <- gsub('(?=(?:.{45})+$)', "..._", metab, perl = TRUE)
+        #metab <- ifelse(nchar(metab) > 45, paste0(strtrim(metab, 45), '...'), metab)
+      }
+      metab.list$HMDB_name <- metab
+    }
+    
     i_tot <- nrow(metab.list)
+
+
+    # Filter summed on the metabolites of interest (moi)
+    joined <- inner_join(metab.list, summed[-2], by = "HMDB_code")
+    #joined <- inner_join(summed, metab.list, by = "HMDB_code")
+
+    moi <- joined[,-2]
+    j <- joined[,-1]
+    jm <- reshape2::melt(j, id.vars = "HMDB_name")
+    jma <- aggregate(HMDB_name ~ value+variable, jm, paste0, collapse = "_")
+    jmas <- jma %>% separate(HMDB_name, into = c("HMDB_name", "isobar"), sep="_",extra = "merge", fill = "right")
+    jmaso <- jmas[ rev(order(match(jmas$HMDB_name, metab.list$HMDB_name))), ]
+    jmao <- jmaso %>% unite(HMDB_name,c("HMDB_name","isobar"),sep=";", na.rm = TRUE)
+    jmao$HMDB_name <- gsub(';|_','\n',jmao$HMDB_name)
+    jmao$HMDB_name <- factor(jmao$HMDB_name, levels=unique(jmao$HMDB_name))
+    moi_m <- jmao
+    enters <- max(lengths(regmatches(jma$HMDB_name, gregexpr("_", jma$HMDB_name))))
     # adjust size for the font of y-axis labels and plotted dot sizes
-    if (i_tot>30){
+    if (enters > 3) {
+        fontsize <- -0.08*enters +1.22
+    } else if (i_tot>30) {
       fontsize <- -0.008*i_tot + 1.22
-      if (fontsize < 0.1) { fontsize <- 0.1 }
     } else {
       fontsize <- 1
     }
-    
-    # Filter summed on the metabolites of interest (moi)
-    joined <- inner_join(metab.list, summed, by = "HMDB_code")
-    #joined <- inner_join(summed, metab.list, by = "HMDB_code")
-    joined <- joined %>%
-        mutate( HMDB_name=factor(HMDB_name,levels=metab.list$HMDB_name ))
-    moi <- joined[,-2]
-    moi_names <- joined[,-1]
-    # remove "_Zscore" from col names
-    names(moi_names) <- gsub("_Zscore", "", names(moi_names))
-    names(moi) <- gsub("_Zscore", "", names(moi))
-    # melt the dataframe because that is easily plotted.
-    moi_m <- reshape2::melt(moi_names, id.vars = "HMDB_name")
-    moi_m$HMDB_name <- factor(moi_m$HMDB_name, levels=metab.list$HMDB_name)
-    #moi_mo <- moi_m %>%
-    #  mutate( HMDB_name=factor(HMDB_name,levels=metab.list$HMDB_name ))
-    # keep the order of the metabolites in the plots the same as in the text files
-    #moi_m <- moi_m %>%
-    #  mutate( HMDB_name=factor(HMDB_name,levels=metab.list$HMDB_name ))
-    # collapse all compounds with the same zscore, as they are isobaric compounds
-    # (= different molecular formula, same nominal mass)
-    moi_m<- aggregate(HMDB_name ~ variable+value, moi_m, paste0, collapse = "\n")
+    if (fontsize < 0.1) { fontsize <- 0.1 }
     # make selection of scores higher than the cut-off that will be colored according
     # to their values. They will be plotted according to their values in moi_m
     group_highZ <- moi_m %>%
@@ -416,9 +441,7 @@ if (violin == 1) {
     # Because the range of diagnostic ratios is often far below zero, change all
     # values below the xaxis cutoff to the cut-off value to prevent a very long
     # x-axis in the plots with other metabolites (in IEM plots).
-    if (endsWith(pt,"_IEM")){
-      moi_m_max20$value <- as.numeric(lapply(moi_m_max20$value, function(x) ifelse(x < ratios_cutoff, as.numeric(ratios_cutoff), x)))
-    }
+    moi_m_max20$value <- as.numeric(lapply(moi_m_max20$value, function(x) ifelse(x < ratios_cutoff, as.numeric(ratios_cutoff), x)))
     
     # Get values that overlap with highZ and max20: i.e. 5 < z < 20
     group_highZ_max20 <- moi_m_max20 %>%
@@ -434,11 +457,12 @@ if (violin == 1) {
       pt_data <- moi_m[which(moi_m$variable==pt_colname),]
       pt_data_max20 <- moi_m_max20[which(moi_m_max20$variable==pt_colname),]
       pt_values <- pt_data$value
+      
       colors <- c("#22E4AC", "#00B0F0", "#504FFF","#A704FD","#F36265","#DA0641")
       #             green     blue      blue/purple purple    orange    red
       plot_height <- 80 * i_tot
       file_png <- paste0(output_dir,"/", pt, "_",stoftest,"_",i,".png")
-      if (ThisProbScore==0){
+      if (ThisProbScore==0 & !startsWith(stoftest,"top") & ptcount > 1){
         # plot each stofgroup
         g <- ggplot(moi_m_max20, aes(x=value, y=HMDB_name, color = value))+
           theme(axis.text.y=element_text(size=rel(fontsize)))+
@@ -449,7 +473,22 @@ if (violin == 1) {
           labs(x = "Z-scores",y = "Metabolites",title = paste0("Results for patient ",pt), subtitle = paste0(stoftest,"\nZ-score > ",zscore_cutoff))+
           geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)+
           geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
-      } else {
+      }
+      if (ThisProbScore==0 & startsWith(stoftest,"top") & ptcount > 1){
+        g <- ggplot(moi_m, aes(x=value, y=HMDB_name, color = value))+
+          theme(axis.text.y=element_text(size=rel(fontsize)))+
+          geom_violin(scale="width")+
+          geom_point(data = pt_data, aes(color=pt_data$value),size = 3.5*fontsize,shape=21, fill="white")+
+          geom_jitter(data = group_highZ, aes(color=group_highZ$value), size = 1.3*fontsize, position = position_dodge(1.5))+ #,colour = "#3592b7" 
+          scale_fill_gradientn(colors = colors,values = NULL,space = "Lab",na.value = "grey50",guide = "colourbar",aesthetics = "colour")+
+          labs(x = "Z-scores",y = "Metabolites",title = paste0("Results for patient ",pt), subtitle = paste0(stoftest,"\nZ-score > ",zscore_cutoff))+
+          geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)+
+          geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
+        #the plot without x-axis constraints
+        
+        
+      }
+      if (ThisProbScore > 0){
         # plot the metabolites of the top 5 IEMs
         g <- ggplot(moi_m_max20, aes(x=value, y=HMDB_name, color = value))+
           theme(axis.text.y=element_text(size=rel(fontsize)))+
@@ -465,7 +504,7 @@ if (violin == 1) {
     }
     
     # overview plots
-    if (pt=="alle"){
+    if (pt=="alle" &  !startsWith(stoftest, "top")){
       #the plot with zscores of max 20 on the x-axis
       g <- ggplot(moi_m_max20, mapping = aes(x=value, y=HMDB_name))+
         theme(axis.text.y=element_text(size=rel(fontsize)))+
@@ -476,7 +515,7 @@ if (violin == 1) {
         geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
       print(g)
     }
-    if (pt=="alle_volle_x-as"){
+    if (pt=="alle_volle_x-as" & !startsWith(stoftest, "top")){
       #the plot without x-axis contraints
       g <- ggplot(moi_m, mapping = aes(x=value, y=HMDB_name))+
         theme(axis.text.y=element_text(size=rel(fontsize)))+
@@ -487,6 +526,20 @@ if (violin == 1) {
         geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
       print(g)
     }
+    if (startsWith(stoftest, "afdhhatop")){
+      g <- ggplot(moi_m, aes(x=value, y=HMDB_name, color = value))+
+        theme(axis.text.y=element_text(size=rel(fontsize)))+
+        geom_violin(scale="width")+
+        geom_point(data = pt_data, aes(color=pt_data$value),size = 3.5*fontsize,shape=21, fill="white")+
+        geom_jitter(data = group_highZ, aes(color=group_highZ$value), size = 1.3*fontsize, position = position_dodge(1.5))+ #,colour = "#3592b7" 
+        scale_fill_gradientn(colors = colors,values = NULL,space = "Lab",na.value = "grey50",guide = "colourbar",aesthetics = "colour")+
+        labs(x = "Z-scores",y = "Metabolites",title = paste0("Results for patient ",pt), subtitle = paste0(stoftest,"\nZ-score > ",zscore_cutoff))+
+        geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)+
+        geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
+        #the plot without x-axis contraints
+        print(g)
+      
+    }
   }
   
   n <- 0
@@ -494,11 +547,17 @@ if (violin == 1) {
   plot_height <- 0.40 * i_tot
   plot_width <- 6
   cat(paste0("\n(plot dimensions: ",plot_width, " x ", plot_height,")\n" ))
-  
+  ptcount <- 0
   lapply(patient_list, function(pt) {
     # for each patient, go into the for loop for as many text files there are.
     #cat(paste0("\n","For ",pt,", done with plot nr. "))
     c = 0
+    if (ptcount <= nrpat) {
+      ptcount <<- ptcount + 1
+    } else {
+      ptcount <<- 0
+    }
+    
     # IEM violin plots:
     if (endsWith(pt,"_IEM")) {
       n <<- n + 1
@@ -544,7 +603,7 @@ if (violin == 1) {
           #names(dis) <- gsub("HMDB.code", "HMDB_code", gsub("Metabolite", "HMDB_name", names(dis) ) )
           ThisProbScore <- ProbScore_top_IEM_s[d]
           cat(paste0("d  ",d,"\n",disease,"\t",ThisProbScore))
-          make_plots(dis,disease,pt,zscore_cutoff,xaxis_cutoff,ThisProbScore,ratios_cutoff)
+          make_plots(dis,disease,pt,zscore_cutoff,xaxis_cutoff,ThisProbScore,ratios_cutoff,0)
         }
         k <- dev.off()
       }
@@ -568,14 +627,15 @@ if (violin == 1) {
         ThisProbScore = 0 # means that this is no IEM plot
         c = c + 1
         stoftest <- gsub(".txt","",stofgroup_files[c]) # (string) stoftest name
-        # generate a new line when ; is in metabolite name.
-        metab.list$HMDB_name <- gsub(';','\n',metab.list$HMDB_name)
+
         # send to function
-        make_plots(metab.list, stoftest, pt, zscore_cutoff, xaxis_cutoff,ThisProbScore,ratios_cutoff)
+        make_plots(metab.list, stoftest, pt, zscore_cutoff, xaxis_cutoff,ThisProbScore,ratios_cutoff,ptcount)
         if (c%%1==0){
           cat(paste0(c," "))
         }
       }
+      print(paste0("patientnr: ",ptcount))
+      
       k <- dev.off()
     }
     #k <- dev.off()
