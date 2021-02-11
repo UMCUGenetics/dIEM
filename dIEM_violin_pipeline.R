@@ -19,6 +19,7 @@ library(sys)
 rm(list = ls())
 w <- 0.5 # seconds that system waits in between steps
 shorter <- 0 # shorter list of patients
+check.lists <- FALSE # check the lists of metabolites
 low_memory <- 0 # if RStudio crashes during script
 top <- 5 # number of diseases that score highest in algorithm to plot
 threshold_IEM = 5 # probability score cut-off for plotting the top diseases
@@ -320,6 +321,9 @@ if (violin == 1) {
   # HMDB_code patientname1  patientname2
   names(Zscore) <- gsub("HMDB.code","HMDB_code", names(Zscore) )
   summed <- Zscore[-2] # remove the HMDB.name column
+  if (check.lists) {
+    summed.c <- Zscore
+  }
   names(summed) <- gsub("_Zscore", "", names(summed)) # remove the _Zscore from columnnames
   
   # Make a patient list so it can be looped over later in lapply.
@@ -350,8 +354,19 @@ if (violin == 1) {
   names(Expected_red) <- gsub("HMDB.code", "HMDB_code", gsub("Metabolite", "HMDB_name", names(Expected_red) ) )
   Expected_rest <- Expected_red[!duplicated(Expected_red[,2]),][,c(2,3)]
   # Remove the metab-list from the expected df.
+  cc = 0
   for (metab.list1 in metab.list0){
     Expected_rest <- anti_join(Expected_rest, metab.list1, by='HMDB_code')
+    ### checkkkkk
+    if (check.lists) {
+      cc = cc + 1
+      stoftest <- gsub(".txt","",stofgroup_files[cc]) # (string) stoftest name
+      #### checkkkk
+      joined.c <- inner_join(metab.list1, summed.c, by = "HMDB_code")
+      check <- joined.c[,c(1:4)]
+      write.xlsx(check, paste0(output_dir,"/", stoftest, "_check.xlsx"))
+      ####
+    }
   }
   index = index + 1 
   metab.list0[[index]] <- Expected_rest
@@ -370,13 +385,18 @@ if (violin == 1) {
     # Filter summed on the metabolites of interest (moi)
     joined <- inner_join(metab.list, summed, by = "HMDB_code")
     #joined <- inner_join(summed, metab.list, by = "HMDB_code")
+    joined <- joined %>%
+        mutate( HMDB_name=factor(HMDB_name,levels=metab.list$HMDB_name ))
     moi <- joined[,-2]
     moi_names <- joined[,-1]
     # remove "_Zscore" from col names
     names(moi_names) <- gsub("_Zscore", "", names(moi_names))
     names(moi) <- gsub("_Zscore", "", names(moi))
     # melt the dataframe because that is easily plotted.
-    moi_m <- melt(moi_names, id.vars = "HMDB_name")
+    moi_m <- reshape2::melt(moi_names, id.vars = "HMDB_name")
+    moi_m$HMDB_name <- factor(moi_m$HMDB_name, levels=metab.list$HMDB_name)
+    #moi_mo <- moi_m %>%
+    #  mutate( HMDB_name=factor(HMDB_name,levels=metab.list$HMDB_name ))
     # keep the order of the metabolites in the plots the same as in the text files
     #moi_m <- moi_m %>%
     #  mutate( HMDB_name=factor(HMDB_name,levels=metab.list$HMDB_name ))
@@ -400,15 +420,11 @@ if (violin == 1) {
       moi_m_max20$value <- as.numeric(lapply(moi_m_max20$value, function(x) ifelse(x < ratios_cutoff, as.numeric(ratios_cutoff), x)))
     }
     
-    
-
-    
     # Get values that overlap with highZ and max20: i.e. 5 < z < 20
     group_highZ_max20 <- moi_m_max20 %>%
       group_by(value) %>% 
       filter(value > zscore_cutoff) %>%
       ungroup()
-    
 
     if (!startsWith(pt,"all")){
       # patient one by one
@@ -536,7 +552,6 @@ if (violin == 1) {
     } else {
       
       # normal violin plots:
-      
       cat(paste0("\n","For ",pt,", done with plot nr. "))
       
       if (startsWith(pt,"all")){
@@ -566,7 +581,6 @@ if (violin == 1) {
     #k <- dev.off()
     
   })
-  
   
   outputfiles <- list.files(path=paste0(path_output,"/",run_name), pattern="*.pdf", full.names=FALSE, recursive=FALSE)
   if (exists("stofgroup_files") & exists("metab.list1") & (length(outputfiles)>=(nrpat+2))) {
