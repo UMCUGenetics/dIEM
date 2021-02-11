@@ -25,3 +25,4 @@ HMDB00350	3-Hydroxysebacicacid
 HMDB00210	Pantothenate
 HMDB00830	Neuraminic acid
 HMDB00230	N-Acetylneuraminate
+HMDBCSF01	TH-DiagRatio;HVA/5-HIAA

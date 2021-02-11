@@ -22,3 +22,6 @@ HMDB00489	Aspartylglycosamine
 HMDB28842	Glycyl-Hydroxyproline
 HMDB00696	L-Methionine
 HMDB00742	Homocysteine
+HMDB0AA01	PKU-DiagRatio;Phe/Tyr
+HMDB0AA02	Mitochondrial-DiagRatio;Ala/Lys
+HMDB0AA03	Mitochondrial-DiagRatio;Ala/(Phe+Tyr)
