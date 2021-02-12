@@ -18,10 +18,12 @@ library(sys)
 library(tidyr)
 
 rm(list = ls())
-w <- 0.5 # seconds that system waits in between steps
+w <- 3 # seconds that system waits in between steps
+low_memory <- 1 # if RStudio crashes during script
+
+
 shorter <- 0 # shorter list of patients
 check.lists <- FALSE # check the lists of metabolites
-low_memory <- 0 # if RStudio crashes during script
 top <- 5 # number of diseases that score highest in algorithm to plot
 threshold_IEM = 5 # probability score cut-off for plotting the top diseases
 ratios_cutoff = -5 # z-score cutoff of axis on the left for top diseases
@@ -395,7 +397,7 @@ if (violin == 1) {
       count = 0
       for (metab in metab.list[2]){
         count = count + 1
-        metab <- gsub('(?=(?:.{45})+$)', "..._", metab, perl = TRUE)
+        metab <- gsub("(.{45})", "\\1..._", metab, perl = TRUE)
         #metab <- ifelse(nchar(metab) > 45, paste0(strtrim(metab, 45), '...'), metab)
       }
       metab.list$HMDB_name <- metab
@@ -427,7 +429,7 @@ if (violin == 1) {
     } else {
       fontsize <- 1
     }
-    if (fontsize < 0.1) { fontsize <- 0.1 }
+    if (fontsize < 0.2) { fontsize <- 0.2 }
     # make selection of scores higher than the cut-off that will be colored according
     # to their values. They will be plotted according to their values in moi_m
     group_highZ <- moi_m %>%
@@ -470,7 +472,7 @@ if (violin == 1) {
           geom_point(data = pt_data_max20, aes(color=pt_data$value),size = 3.5*fontsize,shape=21, fill="white")+
           geom_jitter(data = group_highZ_max20, aes(color=group_highZ$value), size = 1.3*fontsize, position = position_dodge(1.5))+ #,colour = "#3592b7" 
           scale_fill_gradientn(colors = colors,values = NULL,space = "Lab",na.value = "grey50",guide = "colourbar",aesthetics = "colour")+
-          labs(x = "Z-scores",y = "Metabolites",title = paste0("Results for patient ",pt), subtitle = paste0(stoftest,"\nZ-score > ",zscore_cutoff))+
+          labs(x = "Z-scores",y = "Metabolites",title = paste0("Results for patient ",pt), subtitle = stoftest)+
           geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)+
           geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
       }
@@ -481,7 +483,7 @@ if (violin == 1) {
           geom_point(data = pt_data, aes(color=pt_data$value),size = 3.5*fontsize,shape=21, fill="white")+
           geom_jitter(data = group_highZ, aes(color=group_highZ$value), size = 1.3*fontsize, position = position_dodge(1.5))+ #,colour = "#3592b7" 
           scale_fill_gradientn(colors = colors,values = NULL,space = "Lab",na.value = "grey50",guide = "colourbar",aesthetics = "colour")+
-          labs(x = "Z-scores",y = "Metabolites",title = paste0("Results for patient ",pt), subtitle = paste0(stoftest,"\nZ-score > ",zscore_cutoff))+
+          labs(x = "Z-scores",y = "Metabolites",title = paste0("Results for patient ",pt), subtitle = stoftest)+
           geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)+
           geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
         #the plot without x-axis constraints
@@ -510,7 +512,7 @@ if (violin == 1) {
         theme(axis.text.y=element_text(size=rel(fontsize)))+
         geom_violin(scale="width")+
         geom_jitter(data = group_highZ_max20,aes(color = group_highZ$variable), size = 2.5*fontsize, position = position_dodge(0.8))+ 
-        labs(x = "Z-scores",y = "Metabolites",title = "Overview plot", subtitle = paste0(stoftest,"\nZ-score > ",zscore_cutoff), color = "patients")+
+        labs(x = "Z-scores",y = "Metabolites",title = "Overview plot", subtitle = stoftest, color = "patients")+
         geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)+
         geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
       print(g)
@@ -521,7 +523,7 @@ if (violin == 1) {
         theme(axis.text.y=element_text(size=rel(fontsize)))+
         geom_violin(scale="width")+
         geom_jitter(data = group_highZ,aes(color = variable), size = 2.5*fontsize, position = position_dodge(0.8))+ 
-        labs(x = "Z-scores",y = "Metabolites",title = "Overview plot", subtitle = paste0(stoftest,"\nZ-score > ",zscore_cutoff), color = "patients")+
+        labs(x = "Z-scores",y = "Metabolites",title = "Overview plot", subtitle = stoftest, color = "patients")+
         geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)+
         geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
       print(g)
@@ -533,7 +535,7 @@ if (violin == 1) {
         geom_point(data = pt_data, aes(color=pt_data$value),size = 3.5*fontsize,shape=21, fill="white")+
         geom_jitter(data = group_highZ, aes(color=group_highZ$value), size = 1.3*fontsize, position = position_dodge(1.5))+ #,colour = "#3592b7" 
         scale_fill_gradientn(colors = colors,values = NULL,space = "Lab",na.value = "grey50",guide = "colourbar",aesthetics = "colour")+
-        labs(x = "Z-scores",y = "Metabolites",title = paste0("Results for patient ",pt), subtitle = paste0(stoftest,"\nZ-score > ",zscore_cutoff))+
+        labs(x = "Z-scores",y = "Metabolites",title = paste0("Results for patient ",pt), subtitle = stoftest)+
         geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)+
         geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
         #the plot without x-axis contraints
