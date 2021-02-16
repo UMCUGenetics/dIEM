@@ -19,7 +19,7 @@ library(tidyr)
 
 rm(list = ls())
 w <- 3 # seconds that system waits in between steps
-low_memory <- 1 # if RStudio crashes during script
+low_memory <- 1 # yes(1)/no(0) if RStudio crashes during script
 
 
 shorter <- 0 # shorter list of patients
@@ -39,7 +39,7 @@ cat(paste0("Running dIEM violin pipeline, start time: \t",start_time,"\n"))
 if (exists("run_name")) {
   cat("\nThe config file is succesfully loaded from working directory.")
 } else {
-  cat("\n**** Error: Could not find a config file. please check if working directory is set in 'Session'. \n")
+  cat("\n**** Error: Could not find a config file. please check if Working Directory is set in 'Session'. \n")
 }
 
 
@@ -183,6 +183,7 @@ if (ratios == 1) { # ratios in settings is 1
     Ratios[12,controls]<-log10(dims3[which(dims3[,1]=='HMDB00118'),controls]/dims3[which(dims3[,1]=='HMDB00763'),controls])
     Ratios[13,controls]<-log10(dims3[which(dims3[,1]=='HMDB01325'),controls]/dims3[which(dims3[,1]=='HMDB06831'),controls])
     Ratios[14,controls]<-log10(dims3[which(dims3[,1]=='HMDB00791'),controls]/dims3[which(dims3[,1]=='HMDB00651'),controls])
+    Ratios[15,controls]<-log10(dims3[which(dims3[,1]=='HMDB01257'),controls]/dims3[which(dims3[,1]=='HMDB01256'),controls])
   }
   
   # Calc means and SD's of the calculated ratios, add them in 2 columns in ratio df.
@@ -375,7 +376,7 @@ if (violin == 1) {
   # voeg additionele lijsten toe, rest, de top 20 hoogst scorende en top 10 laagst.
   index = index + 1 
   metab.list0[[index]] <- Expected_rest
-  stofgroup_files[index] <- "rest"
+  stofgroup_files[index] <- "rest_automatic"
   metab.list0[[index+1]] <- Expected_rest[c(1:20),]
   stofgroup_files[index+1] <- "top20_hoogst"
   metab.list0[[index+2]] <- Expected_rest[c(1:10),]
@@ -396,40 +397,48 @@ if (violin == 1) {
       metab.list <- topX[-3]
       count = 0
       for (metab in metab.list[2]){
+        print(metab)
         count = count + 1
-        metab <- gsub("(.{45})", "\\1..._", metab, perl = TRUE)
+        metab <- gsub("(.{45})", "\\1...;", metab, perl = TRUE)
         #metab <- ifelse(nchar(metab) > 45, paste0(strtrim(metab, 45), '...'), metab)
+        print(metab)
       }
       metab.list$HMDB_name <- metab
     }
     
     i_tot <- nrow(metab.list)
 
-
     # Filter summed on the metabolites of interest (moi)
     joined <- inner_join(metab.list, summed[-2], by = "HMDB_code")
-    #joined <- inner_join(summed, metab.list, by = "HMDB_code")
-
     moi <- joined[,-2]
     j <- joined[,-1]
     jm <- reshape2::melt(j, id.vars = "HMDB_name")
+    #jmo <- jm[ rev(order(match(jm$HMDB_name, joined$HMDB_name))), ]
     jma <- aggregate(HMDB_name ~ value+variable, jm, paste0, collapse = "_")
     jmas <- jma %>% separate(HMDB_name, into = c("HMDB_name", "isobar"), sep="_",extra = "merge", fill = "right")
-    jmaso <- jmas[ rev(order(match(jmas$HMDB_name, metab.list$HMDB_name))), ]
-    jmao <- jmaso %>% unite(HMDB_name,c("HMDB_name","isobar"),sep=";", na.rm = TRUE)
+    jmaso <- jmas[ rev(order(match(jmas$HMDB_name, joined$HMDB_name))), ]
+    jmao <- jmaso %>% unite(HMDB_name,c("HMDB_name","isobar"),sep="_", na.rm = TRUE)
+    enters <- max(lengths(regmatches(jmao$HMDB_name, gregexpr(";|_", jma$HMDB_name))))
     jmao$HMDB_name <- gsub(';|_','\n',jmao$HMDB_name)
     jmao$HMDB_name <- factor(jmao$HMDB_name, levels=unique(jmao$HMDB_name))
+    if (check.lists) {
+      write.xlsx(jmaso, paste0(output_dir,"/", stoftest, "_check2.xlsx"))
+    }
     moi_m <- jmao
-    enters <- max(lengths(regmatches(jma$HMDB_name, gregexpr("_", jma$HMDB_name))))
     # adjust size for the font of y-axis labels and plotted dot sizes
     if (enters > 3) {
-        fontsize <- -0.08*enters +1.22
-    } else if (i_tot>30) {
-      fontsize <- -0.008*i_tot + 1.22
+      fontsize <- -0.08*enters +1.22
     } else {
       fontsize <- 1
     }
-    if (fontsize < 0.2) { fontsize <- 0.2 }
+    if (i_tot>20) {
+      fontsize <- -0.008*i_tot + 1.22
+      circlesize <- -0.008*i_tot + 1.22
+    } else {
+      circlesize <- 1
+    }
+    if (fontsize < 0.1) { fontsize <- 0.1 }
+    if (circlesize < 0.2) { circlesize <- 0.2 }
     # make selection of scores higher than the cut-off that will be colored according
     # to their values. They will be plotted according to their values in moi_m
     group_highZ <- moi_m %>%
@@ -455,15 +464,13 @@ if (violin == 1) {
       # patient one by one
       pt <- gsub("_IEM", "", pt)
       pt_colname <- pt
-      # get values from patient, as 
+      # get values from patient
       pt_data <- moi_m[which(moi_m$variable==pt_colname),]
       pt_data_max20 <- moi_m_max20[which(moi_m_max20$variable==pt_colname),]
       pt_values <- pt_data$value
       
       colors <- c("#22E4AC", "#00B0F0", "#504FFF","#A704FD","#F36265","#DA0641")
       #             green     blue      blue/purple purple    orange    red
-      plot_height <- 80 * i_tot
-      file_png <- paste0(output_dir,"/", pt, "_",stoftest,"_",i,".png")
       if (ThisProbScore==0 & !startsWith(stoftest,"top") & ptcount > 1){
         # plot each stofgroup
         g <- ggplot(moi_m_max20, aes(x=value, y=HMDB_name, color = value))+
@@ -477,6 +484,7 @@ if (violin == 1) {
           geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
       }
       if (ThisProbScore==0 & startsWith(stoftest,"top") & ptcount > 1){
+        # the top20 & top10 plots
         g <- ggplot(moi_m, aes(x=value, y=HMDB_name, color = value))+
           theme(axis.text.y=element_text(size=rel(fontsize)))+
           geom_violin(scale="width")+
@@ -507,7 +515,7 @@ if (violin == 1) {
     
     # overview plots
     if (pt=="alle" &  !startsWith(stoftest, "top")){
-      #the plot with zscores of max 20 on the x-axis
+      #overview plot with zscores of max 20 on the x-axis
       g <- ggplot(moi_m_max20, mapping = aes(x=value, y=HMDB_name))+
         theme(axis.text.y=element_text(size=rel(fontsize)))+
         geom_violin(scale="width")+
@@ -518,7 +526,7 @@ if (violin == 1) {
       print(g)
     }
     if (pt=="alle_volle_x-as" & !startsWith(stoftest, "top")){
-      #the plot without x-axis contraints
+      #overview plot without x-axis constraints
       g <- ggplot(moi_m, mapping = aes(x=value, y=HMDB_name))+
         theme(axis.text.y=element_text(size=rel(fontsize)))+
         geom_violin(scale="width")+
@@ -528,18 +536,6 @@ if (violin == 1) {
         geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
       print(g)
     }
-    if (startsWith(stoftest, "afdhhatop")){
-      g <- ggplot(moi_m, aes(x=value, y=HMDB_name, color = value))+
-        theme(axis.text.y=element_text(size=rel(fontsize)))+
-        geom_violin(scale="width")+
-        geom_point(data = pt_data, aes(color=pt_data$value),size = 3.5*fontsize,shape=21, fill="white")+
-        geom_jitter(data = group_highZ, aes(color=group_highZ$value), size = 1.3*fontsize, position = position_dodge(1.5))+ #,colour = "#3592b7" 
-        scale_fill_gradientn(colors = colors,values = NULL,space = "Lab",na.value = "grey50",guide = "colourbar",aesthetics = "colour")+
-        labs(x = "Z-scores",y = "Metabolites",title = paste0("Results for patient ",pt), subtitle = stoftest)+
-        geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)+
-        geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
-        #the plot without x-axis contraints
-        print(g)
       
     }
   }
@@ -607,6 +603,7 @@ if (violin == 1) {
           cat(paste0("d  ",d,"\n",disease,"\t",ThisProbScore))
           make_plots(dis,disease,pt,zscore_cutoff,xaxis_cutoff,ThisProbScore,ratios_cutoff,0)
         }
+        check.lists <- FALSE
         k <- dev.off()
       }
       
