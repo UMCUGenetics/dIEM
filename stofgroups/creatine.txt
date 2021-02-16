@@ -1,4 +1,0 @@
-HMDB_code	HMDB_name
-HMDB00064	Creatine
-HMDB00128	Guanidinoazijnzuur
-HMDB0CM01	CreatineTransporter-DiagRatio;Creatine/Creatinine
