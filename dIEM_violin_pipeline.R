@@ -219,7 +219,7 @@ if (ratios == 1) { # ratios in settings is 1
   }
   
   if (low_memory == 1) {
-    rm(Zscore_all,dims2,dims3,dimsxls,Combined)
+    rm(Zscore_all,dims2,dims3,dimsxls)
   }
 }
 
@@ -414,7 +414,7 @@ if (violin == 1) {
     if (startsWith(stoftest, "top") & ptcount > 1) {
       if (endsWith(stoftest, "hoogst")){
         topX <- unique(summed[pt]) %>% slice_max(unique(summed[pt]),n = 20)
-        topXj <- inner_join(topX, summed[,c(1,2,(ptcount+1))], by = pt)
+        topX <- inner_join(topX, summed[,c(1,2,(ptcount+1))], by = pt)
       } else {
         topX <- unique(summed[pt]) %>% slice_min(unique(summed[pt]),n = 10)
         topX <- inner_join(topX, summed[,c(1,2,(ptcount+1))], by = pt)
