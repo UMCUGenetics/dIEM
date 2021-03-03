@@ -1,0 +1,53 @@
+HMDB_code	HMDB_name
+HMDB00562	Creatinine
+HMDB00064	Creatine 
+HMDB00128	Guanidinoacetic acid
+HMDB0CM01	CrTrDef-DiagRatio;Creatine/Creatinine
+HMDB00121	Folic acid
+HMDB01396	5-Methyltetrahydrofolic acid
+HMDB01533	5,10-Methylene-THF
+HMDB00925	Trimethylamine N-oxide
+HMDB01096	Carbamoyl phosphate
+HMDB00323	3-Amino-2-piperidone
+HMDB01490	Vanylglycol (MHPG)
+HMDB00181	L-Dopa
+HMDB01434	3-Methoxytyrosine
+HMDB00472	5-Hydroxytryptophan
+HMDB00306	Tyramine
+HMDB00022	3-Methoxytyramine
+HMDB00259	Serotonin
+HMDB00819	Normetanephrine
+HMDB01195	Pyruvoyl tetrahydropterin
+HMDB00027	Tetrahydrobiopterin
+HMDB00980	Dihydroneopterin triphosphate
+HMDB00468	Biopterin
+HMDB00845	Neopterin
+HMDB00038	Dihydrobiopterin
+HMDB02215	4a-Carbinolamine tetrahydrobiopterin
+HMDB02263	Primapterin
+HMDB02052	Maleylacetoacetic acid
+HMDB01268	4-Fumarylacetoacetic acid
+HMDB01149	5-Aminolevulinic acid
+HMDB00125	Glutathione
+HMDB00257	Thiosulfate
+HMDB00731	Cysteine-S-sulfate
+HMDB01263	Alpha-aminoadipic acid delta-semialdehyde
+HMDB00695	Ketoleucine
+HMDB01084	1-Piperideine-6-carboxylate
+HMDB01301	1-Pyrroline-5-carboxylic acid
+HMDB01024	Phosphohydroxypyruvic acid
+HMDB00272	3-Phosphoserine
+HMDB03134	Biocytin
+HMDB01458	Biotin amide
+HMDB01491	Pyridoxal-5-phosphate
+HMDB00224	O-Phosphoethanolamine
+HMDB03152	N-methylnicotinamide
+HMDB04194	N1-methyl-4-pyridone-3-carboxamide
+HMDB00126	Glycerol-3-phosphate
+HMDB06535	Beta-1,4-mannose-N-acetylglucosamine
+HMDB00854	Formiminoglutamic acid
+HMDB59606	betaine
+HMDB00318	3,4-Dihydroxyphenylglycol
+HMDB00244	riboflavin
+HMDB00801	Phytanic acid
+HMDB00795	Pristanic acid
