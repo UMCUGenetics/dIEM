@@ -1,0 +1,23 @@
+HMDB_code	HMDB_name
+HMDB00761	Lithocholic acid
+HMDB00067	Cholesterol
+HMDB00518	Chenodeoxycholic acid
+HMDB01993	7a-Hydroxy-cholestene-3-one
+HMDB01496	7a-Hydroxycholesterol
+HMDB06893	3a,7a-Dihydroxy-5b-cholestane
+HMDB00619	Cholic acid
+HMDB02197	7a,12a-Dihydroxy-cholestene-3-one
+HMDB06887	7a,12a-Dihydroxy-5b-cholestan-3-one
+HMDB01457	5-b-Cholestane-3a ,7a ,12a-triol
+HMDB12458	7 alpha-Hydroxy-3-oxo-4-cholestenoate
+HMDB12454	3 beta,7 alpha-Dihydroxy-5-cholestenoate
+HMDB00698	Lithocholic acid glycine conjugate
+HMDB00359	3a,7a-Dihydroxycoprostanic acid
+HMDB01231	27-Deoxy-5b-cyprinol
+HMDB00631	Deoxycholic acid glycine conjugate
+HMDB03873	3a,7a,12a-Trihydroxy-5b-cholestanoic acid
+HMDB00138	Glycocholic acid
+HMDB00722	Lithocholyltaurine
+HMDB00951	Taurochenodesoxycholic acid
+HMDB00036	Taurocholic acid
+HMDB06888	5b-Cyprinol sulfate
