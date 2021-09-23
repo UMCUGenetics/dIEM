@@ -6,6 +6,8 @@
 #    controls (with C in samplename) and patients (with P in samplename) and their
 #    corresponding zscores. 
 # 2. All files from github: https://github.com/UMCUGenetics/dIEM
+rm(list = ls())
+setwd("~/github/dIEM")
 
 library(beepr)
 library(dplyr)
@@ -17,13 +19,14 @@ library(gghighlight)
 library(sys)
 library(tidyr)
 
-rm(list = ls())
-w <- 2 # seconds that system waits in between steps
-low_memory <- 1 # yes(1)/no(0) if RStudio crashes during script
+
+w <- 0.01 # seconds that system waits in between steps
+low_memory <- 0 # yes(1)/no(0) if RStudio crashes during script
 
 split <- TRUE
 shorter <- 0 # shorter list of patients
 check.lists <- FALSE # check the lists of metabolites
+rest <- FALSE
 top <- 5 # number of diseases that score highest in algorithm to plot
 threshold_IEM = 5 # probability score cut-off for plotting the top diseases
 ratios_cutoff = -5 # z-score cutoff of axis on the left for top diseases
@@ -163,30 +166,30 @@ if (ratios == 1) { # ratios in settings is 1
   # Prepare empty data frame to fill with ratios
   Ratios<-setNames(data.frame(matrix(ncol=ncol(dims3),nrow=nrow(RatioInput))),colnames(dims3))
   Ratios[,1:2]<-RatioInput[,1:2]
-  ### idea: test without log10, look into expected for ratios
+  ### idea: test without 10 log , look into expected for ratios
   for (controls in c(3:(nrcontr+2),(nrcontr+3):(nrcontr+nrpat+2))) {
-    Ratios[1,controls]<-log10(dims3[which(dims3[,1]=='HMDB00159'),controls]/dims3[which(dims3[,1]=='HMDB00158'),controls])
-    Ratios[2,controls]<-log10(dims3[which(dims3[,1]=='HMDB00161'),controls]/dims3[which(dims3[,1]=='HMDB00182'),controls])
-    Ratios[3,controls]<-log10(dims3[which(dims3[,1]=='HMDB00161'),controls]/
+    Ratios[1,controls]<- log2(dims3[which(dims3[,1]=='HMDB00159'),controls]/dims3[which(dims3[,1]=='HMDB00158'),controls])
+    Ratios[2,controls]<- log2(dims3[which(dims3[,1]=='HMDB00161'),controls]/dims3[which(dims3[,1]=='HMDB00182'),controls])
+    Ratios[3,controls]<- log2(dims3[which(dims3[,1]=='HMDB00161'),controls]/
                                 (dims3[which(dims3[,1]=='HMDB00159'),controls]+dims3[which(dims3[,1]=='HMDB00158'),controls]))
-    Ratios[4,controls]<-log10(dims3[which(dims3[,1]=='HMDB00062'),controls]/
+    Ratios[4,controls]<- log2(dims3[which(dims3[,1]=='HMDB00062'),controls]/
                                 (dims3[which(dims3[,1]=='HMDB00222'),controls]+dims3[which(dims3[,1]=='HMDB00848'),controls]))
-    Ratios[5,controls]<-log10((dims3[which(dims3[,1]=='HMDB00222'),controls]+dims3[which(dims3[,1]=='HMDB05065'),controls])
+    Ratios[5,controls]<- log2((dims3[which(dims3[,1]=='HMDB00222'),controls]+dims3[which(dims3[,1]=='HMDB05065'),controls])
                               /dims3[which(dims3[,1]=='HMDB00201'),controls])
-    Ratios[6,controls]<-log10(dims3[which(dims3[,1]=='HMDB02014'),controls]/dims3[which(dims3[,1]=='HMDB00201'),controls])
-    Ratios[7,controls]<-log10(dims3[which(dims3[,1]=='HMDB00791'),controls]/dims3[which(dims3[,1]=='HMDB00201'),controls])
-    Ratios[8,controls]<-log10(dims3[which(dims3[,1]=='HMDB13127'),controls]/dims3[which(dims3[,1]=='HMDB00201'),controls])
-    Ratios[9,controls]<-log10(dims3[which(dims3[,1]=='HMDB00064'),controls]/dims3[which(dims3[,1]=='HMDB00562'),controls])
-    Ratios[10,controls]<-log10(dims3[which(dims3[,1]=='HMDB00824'),controls]/dims3[which(dims3[,1]=='HMDB00696'),controls])
-    Ratios[11,controls]<-log10(dims3[which(dims3[,1]=='HMDB00159'),controls]/
+    Ratios[6,controls]<- log2(dims3[which(dims3[,1]=='HMDB02014'),controls]/dims3[which(dims3[,1]=='HMDB00201'),controls])
+    Ratios[7,controls]<- log2(dims3[which(dims3[,1]=='HMDB00791'),controls]/dims3[which(dims3[,1]=='HMDB00201'),controls])
+    Ratios[8,controls]<- log2(dims3[which(dims3[,1]=='HMDB13127'),controls]/dims3[which(dims3[,1]=='HMDB00201'),controls])
+    Ratios[9,controls]<- log2(dims3[which(dims3[,1]=='HMDB00064'),controls]/dims3[which(dims3[,1]=='HMDB00562'),controls])
+    Ratios[10,controls]<- log2(dims3[which(dims3[,1]=='HMDB00824'),controls]/dims3[which(dims3[,1]=='HMDB00696'),controls])
+    Ratios[11,controls]<- log2(dims3[which(dims3[,1]=='HMDB00159'),controls]/
                                  (dims3[which(dims3[,1]=='HMDB00824'),controls]+dims3[which(dims3[,1]=='HMDB00222'),controls]))
-    Ratios[12,controls]<-log10(dims3[which(dims3[,1]=='HMDB00118'),controls]/dims3[which(dims3[,1]=='HMDB00763'),controls])
-    Ratios[13,controls]<-log10(dims3[which(dims3[,1]=='HMDB01325'),controls]/dims3[which(dims3[,1]=='HMDB06831'),controls])
-    Ratios[14,controls]<-log10(dims3[which(dims3[,1]=='HMDB00791'),controls]/dims3[which(dims3[,1]=='HMDB00651'),controls])
-    Ratios[15,controls]<-log10(dims3[which(dims3[,1]=='HMDB00824'),controls]/dims3[which(dims3[,1]=='HMDB00201'),controls])
-    Ratios[16,controls]<-log10((dims3[which(dims3[,1]=='HMDB00226'),controls]+dims3[which(dims3[,1]=='HMDB00296'),controls]+dims3[which(dims3[,1]=='HMDB00300'),controls])
+    Ratios[12,controls]<- log2(dims3[which(dims3[,1]=='HMDB00118'),controls]/dims3[which(dims3[,1]=='HMDB00763'),controls])
+    Ratios[13,controls]<- log2(dims3[which(dims3[,1]=='HMDB01325'),controls]/dims3[which(dims3[,1]=='HMDB06831'),controls])
+    Ratios[14,controls]<- log2(dims3[which(dims3[,1]=='HMDB00791'),controls]/dims3[which(dims3[,1]=='HMDB00651'),controls])
+    Ratios[15,controls]<- log2(dims3[which(dims3[,1]=='HMDB00824'),controls]/dims3[which(dims3[,1]=='HMDB00201'),controls])
+    Ratios[16,controls]<- log2((dims3[which(dims3[,1]=='HMDB00226'),controls]+dims3[which(dims3[,1]=='HMDB00296'),controls]+dims3[which(dims3[,1]=='HMDB00300'),controls])
                                /dims3[which(dims3[,1]=='HMDB00904'),controls])
-    Ratios[17,controls]<-log10(dims3[which(dims3[,1]=='HMDB01257'),controls]/dims3[which(dims3[,1]=='HMDB01256'),controls])
+    Ratios[17,controls]<- log2(dims3[which(dims3[,1]=='HMDB01257'),controls]/dims3[which(dims3[,1]=='HMDB01256'),controls])
   }
   
   # Calc means and SD's of the calculated ratios, add them in 2 columns in ratio df.
@@ -320,7 +323,7 @@ Sys.sleep(w)
 ########## STEP # 5 #########      Make violin plots
 ############################# in: algorithm / Zscore, violin, nrcontr, nrpat, Data, path_textfiles, zscore_cutoff, xaxis_cutoff, top_diseases, top_metab, output_dir ||| out: pdf file
 #############################
-other_isobaric <- function(metab.list,infile){
+other_isobaric <- function(metab.list,infile, check.lists){
   same.mass <- Combined[c(1,2,(nrpat+nrcontr+5))]
   names(same.mass) <- c("HMDB_code","HMDB_name","zscore")
   metab.list.int <- left_join(metab.list, same.mass, by = "HMDB_code")
@@ -367,17 +370,19 @@ if (violin == 1) {
   for (infile in stofgroup_files) {
     index = index + 1
     metab.list1 <- unique(read.table(paste0(path_txtfiles,"/",infile), sep = "\t", header = TRUE, quote=""))
-    isos <- other_isobaric(metab.list1,infile)
+    isos <- other_isobaric(metab.list1,infile, check.lists)
     metab.list1 <- rbind(metab.list1, isos)
     metab.list0[[index]] <- metab.list1
     cat(paste0("\n",infile))
   }
   cat("\n")
-  # reduce the columns from the expected df for further use and remove double 
-  # metabolites per disease.
   Expected_red <- Expected[,c(5,14,13,18)]
   Expected_red <- Expected_red[!duplicated(Expected_red[,c(1,2)]),]
-  names(Expected_red) <- gsub("HMDB.code", "HMDB_code", gsub("Metabolite", "HMDB_name", names(Expected_red) ) )
+  names(Expected_red) <- gsub("HMDB.code", "HMDB_code", gsub("Metabolite", "HMDB_name", names(Expected_red) ) )  
+  
+  if (rest) {
+  # reduce the columns from the expected df for further use and remove double 
+  # metabolites per disease.
   Expected_rest <- Expected_red[!duplicated(Expected_red[,2]),][,c(2,3)]
   # Remove the metab-list from the expected df.
 
@@ -392,21 +397,20 @@ if (violin == 1) {
       check <- joined.c[,c(1:4)]
       write.xlsx(check, paste0(output_dir,"/", stoftest, "_check.xlsx"))
     }
-
-    
   }
   
-  # voeg additionele lijsten toe, rest, de top 20 hoogst scorende en top 10 laagst.
   index = index + 1 
   metab.list0[[index]] <- Expected_rest
   stofgroup_files[index] <- "rest_automatic"
-  metab.list0[[index+1]] <- Expected_rest[c(1:20),]
-  stofgroup_files[index+1] <- "top20_hoogst"
-  metab.list0[[index+2]] <- Expected_rest[c(1:10),]
-  stofgroup_files[index+2] <- "top10_laagst"
+  }
+  # voeg additionele lijsten toe, rest, de top 20 hoogst scorende en top 10 laagst.
   
 
-  
+  metab.list0[[index+1]] <- summed[c(1:20),c(1,2)]
+  stofgroup_files[index+1] <- "top20_hoogst"
+  metab.list0[[index+2]] <- summed[c(1:10),c(1,2)]
+  stofgroup_files[index+2] <- "top10_laagst"
+
   
   make_plots <- function(metab.list,stoftest,pt,zscore_cutoff,xaxis_cutoff,ThisProbScore,ratios_cutoff, ptcount) {
     stoftest <- as.character(stoftest)
@@ -419,8 +423,25 @@ if (violin == 1) {
         topX <- unique(summed[pt]) %>% slice_min(unique(summed[pt]),n = 10)
         topX <- inner_join(topX, summed[,c(1,2,(ptcount+1))], by = pt)
       }
+      count = 0
+      listrm <- c()
+      b <- 100000.00000
+      for (rows in c(1:nrow(topX))) {
+        a <- topX[rows,1]
+        if (a==b) { count = count + 1 }
+        else { count = 0 }
+        if (count >= 6) { listrm <- c(listrm, rows) }
+        b <- a 
+      }
+      if (length(listrm) > 0) { 
+        metab.list <- topX[-(listrm),-1]
+        isos <- other_isobaric(metab.list,"infile",FALSE)
+        metab.list <- rbind(metab.list, isos)
+      } else {
+        metab.list <- topX[-1]
+      }
       # replace the metab.list dataframe with new values
-      metab.list <- topX[-1]
+      #metab.list <- topX[-1]
       
     }
     count <- 0
@@ -438,12 +459,15 @@ if (violin == 1) {
     jmas <- jma %>% separate(HMDB_name, into = c("HMDB_name", "isobar"), sep="_",extra = "merge", fill = "right")
     jmaso <- jmas[ rev(order(match(jmas$HMDB_name, joined$HMDB_name))), ]
     jmao <- jmaso %>% unite(HMDB_name,c("HMDB_name","isobar"),sep="_", na.rm = TRUE)
-    enters <- max(lengths(regmatches(jmao$HMDB_name, gregexpr(";|_", jma$HMDB_name))))
+    #enters <- max(lengths(regmatches(jmao$HMDB_name, gregexpr(";|_", jma$HMDB_name))))
     jmao$HMDB_name <- gsub(';|_','\n',jmao$HMDB_name)
     jmao$HMDB_name <- factor(jmao$HMDB_name, levels=unique(jmao$HMDB_name))
     if (check.lists & (pt=="alle")) {
       write.xlsx(jmaso, paste0(output_dir,"/", stoftest, "_check2.xlsx"))
     }
+    
+    # Split the metabolite lists from isobaric compounds
+    
     isos <- jmao %>% separate(HMDB_name, into = c("HMDB_name", "isobar"), sep="zzz",extra = "merge", fill = "right")
     b <- "yellow"
     count <- 0
@@ -518,7 +542,7 @@ if (violin == 1) {
     } else {
       fontsize3 <- 1
     }
-    print(c(fontsize1, fontsize2, fontsize3, (enters*i_tot)))
+    #print(c(fontsize1, fontsize2, fontsize3, (enters*i_tot)))
     fontsize <- min(c(fontsize1, fontsize2, fontsize3))
     if (fontsize < 0.2) { fontsize <- 0.2 }
     if (circlesize < 0.3) { circlesize <- 0.3 }
@@ -556,13 +580,13 @@ if (violin == 1) {
       #             green     blue      blue/purple purple    orange    red
       if (ThisProbScore==0 & !startsWith(stoftest,"top") & ptcount > 1){
         # plot each stofgroup
-        g <- ggplot(moi_m_max20, aes(x=value, y=HMDB_name, color = value))+
+        g <- ggplot(moi_m_max20, aes(x=value, y=HMDB_name))+
           theme(axis.text.y=element_text(size=rel(fontsize)), plot.caption = element_text(size=rel(fontsize)))+
           geom_violin(scale="width")+
           geom_point(data = pt_data_max20, aes(color=pt_data$value),size = 3.5*circlesize,shape=21, fill="white")+
           geom_jitter(data = group_highZ_max20, aes(color=group_highZ$value), size = 1.3*circlesize, position = position_dodge(1.5))+ #,colour = "#3592b7" 
           scale_fill_gradientn(colors = colors,values = NULL,space = "Lab",na.value = "grey50",guide = "colourbar",aesthetics = "colour")+
-          labs(x = "Z-scores",y = "Metabolites",title = paste0("Results for patient ",pt), subtitle = stoftest, caption = "Voor voetnoot zie 'isobarics.txt'")+
+          labs(x = "Z-scores",y = "Metabolites",title = paste0("Results for patient ",pt), subtitle = stoftest, color = "z-score", caption = "Voor voetnoot zie 'isobarics.txt'")+
           geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)+
           geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
       }
@@ -574,7 +598,7 @@ if (violin == 1) {
           geom_point(data = pt_data, aes(color=pt_data$value),size = 3.5*circlesize,shape=21, fill="white")+
           geom_jitter(data = group_highZ, aes(color=group_highZ$value), size = 1.3*circlesize, position = position_dodge(1.5))+ #,colour = "#3592b7" 
           scale_fill_gradientn(colors = colors,values = NULL,space = "Lab",na.value = "grey50",guide = "colourbar",aesthetics = "colour")+
-          labs(x = "Z-scores",y = "Metabolites",title = paste0("Results for patient ",pt), subtitle = stoftest)+
+          labs(x = "Z-scores",y = "Metabolites",title = paste0("Results for patient ",pt), subtitle = stoftest, color = "z-score")+
           geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)+
           geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
         #the plot without x-axis constraints
@@ -589,23 +613,28 @@ if (violin == 1) {
           geom_point(data = pt_data_max20, aes(color=pt_data$value),size = 3.5*circlesize,shape=21, fill="white")+
           geom_jitter(data = group_highZ_max20, aes(color=group_highZ$value), size = 1.3*circlesize, position = position_dodge(1.5))+ #,colour = "#3592b7" 
           scale_fill_gradientn(colors = colors,values = NULL,space = "Lab",na.value = "grey50",guide = "colourbar",aesthetics = "colour")+
-          labs(x = "Z-scores",y = "Metabolites",title = paste0("Algorithm results for patient ",pt), subtitle = paste0("Disease: ",stoftest,"\nProbability Score = ",format(round(ThisProbScore, 2), nsmall = 2)))+
+          labs(x = "Z-scores",y = "Metabolites",title = paste0("Algorithm results for patient ",pt), subtitle = paste0("Disease: ",stoftest,"\nProbability Score = ",format(round(ThisProbScore, 2), nsmall = 2)), color = "z-score")+
           geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)+
           geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
       }
       print(g)
     }
-    
+    opencircle <- FALSE
+    gradient <- FALSE
     # overview plots
     if (pt=="alle" &  !startsWith(stoftest, "top")){
       #overview plot with zscores of max 20 on the x-axis
       g <- ggplot(moi_m_max20, mapping = aes(x=value, y=HMDB_name))+
         theme(axis.text.y=element_text(size=rel(fontsize)))+
         geom_violin(scale="width")+
+        {if(opencircle) geom_point(data = pt_data_max20, aes(color=pt_data$value),size = 3.5*circlesize,shape=21, fill="white")} +
         geom_jitter(data = group_highZ_max20,aes(color = group_highZ$variable), size = 2.5*circlesize, position = position_dodge(0.8))+ 
+        {if (gradient) scale_fill_gradientn(colors = colors,values = NULL,space = "Lab",na.value = "grey50",guide = "colourbar",aesthetics = "colour")} +
         labs(x = "Z-scores",y = "Metabolites",title = "Overview plot", subtitle = stoftest, color = "patients")+
         geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)+
         geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
+      
+      #delete_layers(g, "GeomText")
       print(g)
     }
     if (pt=="alle_volle_x-as" & !startsWith(stoftest, "top")){
@@ -613,7 +642,7 @@ if (violin == 1) {
       g <- ggplot(moi_m, mapping = aes(x=value, y=HMDB_name))+
         theme(axis.text.y=element_text(size=rel(fontsize)))+
         geom_violin(scale="width")+
-        geom_jitter(data = group_highZ,aes(color = variable), size = 2.5*circlesize, position = position_dodge(0.8))+ 
+        geom_jitter(data = group_highZ,aes(color = group_highZ$variable), size = 2.5*circlesize, position = position_dodge(0.8))+ 
         labs(x = "Z-scores",y = "Metabolites",title = "Overview plot", subtitle = stoftest, color = "patients")+
         geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)+
         geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
