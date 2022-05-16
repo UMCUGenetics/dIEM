@@ -1,0 +1,9 @@
+HMDB_code	HMDB_name	soort_grens	alarmwaarde
+HMDB00182	L-Lysine	boven	3
+HMDB00161	L-Alanine	boven	3
+HMDB00162	L-Proline	boven	3
+HMDB00168	L-Asparagine	onder	-1.5
+HMDB00187	L-Serine	onder	-1.5
+HMDB00904	Citrulline	onder	-1.5
+HMDB00696	Methionine	onder	-1.5
+
