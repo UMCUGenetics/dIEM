@@ -585,7 +585,7 @@ if (violin == 1) {
       
       if (stoftest=="0_alarmwaardes" & ThisProbScore==0 & ptcount > 1){
         # This will be front page with alarmvalues, no plots.
-        # pt <- patient_list[10]
+        # pt <- patient_list[3]
         # metab.list4 <- metab.list0[[1]]
         cat(pt)
         alarm <- inner_join(metab.list4, summed[,c("HMDB_code", pt)], by = "HMDB_code")
@@ -608,44 +608,48 @@ if (violin == 1) {
         #             green     blue      blue/purple purple    orange    red
         if (ThisProbScore==0 & !startsWith(stoftest,"top") & ptcount > 1){
           if (stoftest=="0_alarmwaardes"){
-
             plot.new()
-            find_cell <- function(table, row, col, name="core-fg"){
-              l <- table$layout
-              which(l$t==row & l$l==col & l$name==name)
-            }
-            alarm <- alarm[-1]
-            alarm_table <- tableGrob(alarm)
-            #color_this <- which(alarm$zscore!=0)
-            #color_this <- ""
-            high <- which(alarm$zscore!=0 & alarm$soort_grens=="boven")
-            low <- which(alarm$zscore!=0 & alarm$soort_grens=="onder")
-            # if (length(color_this)!=0){
-            #   for (i in color_this){
-            #     ind <- find_cell(alarm_table, i+1, 5, "core-bg")
-            #     alarm_table$grobs[ind][[1]][["gp"]] <- gpar(fill="darkolivegreen1", col = "darkolivegreen4",fontface="bold", lwd=3)
-            #   }
-            #   
-            # }
-            if (length(high)!=0){
-              for (i in high){
-                ind <- find_cell(alarm_table, i+1, 5, "core-bg")
-                alarm_table$grobs[ind][[1]][["gp"]] <- gpar(fill="#f2cdd7", col = colors[6],fontface="bold", lwd=3)
+            zeroes <- which(alarm$zscore!=0)
+            if (length(zeroes)==0) {
+              text(x=.5, y=.95, paste0("Dit zijn de alarmwaardes voor patient:\n\n",pt), font=1, cex=1, col="#F48024")
+              text(x=.5, y=.85, paste0("Geen afwijkende waardes"), font=1, cex=1, col="#000000")
+            } else {
+              alarm <- alarm[zeroes,]
+              find_cell <- function(table, row, col, name="core-fg"){
+                l <- table$layout
+                which(l$t==row & l$l==col & l$name==name)
               }
-              
-            }
-            if (length(low)!=0){
-              for (i in low){
-                ind <- find_cell(alarm_table, i+1, 5, "core-bg")
-                alarm_table$grobs[ind][[1]][["gp"]] <- gpar(fill="#bcf6e6", col = colors[1],fontface="bold", lwd=3)
+              alarm <- alarm[-1]
+              alarm_table <- tableGrob(alarm)
+              #color_this <- which(alarm$zscore!=0)
+              #color_this <- ""
+              high <- which(alarm$zscore!=0 & alarm$soort_grens=="boven")
+              low <- which(alarm$zscore!=0 & alarm$soort_grens=="onder")
+              # if (length(color_this)!=0){
+              #   for (i in color_this){
+              #     ind <- find_cell(alarm_table, i+1, 5, "core-bg")
+              #     alarm_table$grobs[ind][[1]][["gp"]] <- gpar(fill="darkolivegreen1", col = "darkolivegreen4",fontface="bold", lwd=3)
+              #   }
+              #   
+              # }
+              if (length(high)!=0){
+                for (i in high){
+                  ind <- find_cell(alarm_table, i+1, 5, "core-bg")
+                  alarm_table$grobs[ind][[1]][["gp"]] <- gpar(fill="#f2cdd7", col = colors[6],fontface="bold", lwd=3)
+                }
               }
-              
+              if (length(low)!=0){
+                for (i in low){
+                  ind <- find_cell(alarm_table, i+1, 5, "core-bg")
+                  alarm_table$grobs[ind][[1]][["gp"]] <- gpar(fill="#bcf6e6", col = colors[1],fontface="bold", lwd=3)
+                }
+              }
+              text(x=.5, y=.95, paste0("Dit zijn de alarmwaardes voor patient:\n\n",pt), font=1, cex=1, col="#F48024")  # first 2 numbers are xy-coordinates within [0, 1]
+              #text(x=.1, y=.8, paste0("Bovengrens:"), font=1, cex=0.5)  # first 2 numbers are xy-coordinates within [0, 1]
+              grid.draw(alarm_table)
             }
             
-            
-            text(x=.5, y=.9, paste0("Dit zijn de alarmwaardes voor patient:\n\n",pt), font=1, cex=1, col="#F48024")  # first 2 numbers are xy-coordinates within [0, 1]
-            #text(x=.1, y=.8, paste0("Bovengrens:"), font=1, cex=0.5)  # first 2 numbers are xy-coordinates within [0, 1]
-            grid.draw(alarm_table)
+
           } else {
             # plot each stofgroup
             g <- ggplot(moi_m_max20, aes(x=value, y=HMDB_name))+
