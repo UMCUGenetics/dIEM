@@ -1,47 +1,90 @@
-#For untargeted metabolomics, this tool calculates probability scores for 
+# For untargeted metabolomics, this tool calculates probability scores for 
 # metabolic disorders. In addition, it provides visual support with violin plots 
-# of the mass spectrometry (DI-HRMS) measurements for the lab specialists.
+# of the DIMS measurements for the lab specialists.
 # Input needed: 
-# 1. excel file in which metabolites are listed with their intensities among
+# 1. Excel file in which metabolites are listed with their intensities for
 #    controls (with C in samplename) and patients (with P in samplename) and their
-#    corresponding zscores. 
+#    corresponding Z-scores. 
 # 2. All files from github: https://github.com/UMCUGenetics/dIEM
 
-rm(list = ls())
-setwd("~/github/dIEM")
+# Feb 2023: code refactored to run as last step of DIMS pipeline on HPC
+# setwd("/Users/mraves2/Metabolomics/DIMS_Test_run"); outdir <- getwd() # test env
 
-library(beepr)
 library(dplyr)
 library(reshape2)
 library(data.table)
-library(openxlsx)
-library(ggplot2)
+library(openxlsx) # for opening Excel file
+library(ggplot2) # for plotting
 library(gghighlight)
 library(sys)
 library(tidyr)
 library(gridExtra)
 library(grid)
+library(testthat) # for unit testing
 
+# define parameters - check after addition to run.sh
+cmd_args <- commandArgs(trailingOnly = TRUE)
+for (arg in cmd_args) cat("  ", arg, "\n", sep = "")
 
-w <- 0.01 # seconds that system waits in between steps
-low_memory <- 0 # yes(1)/no(0) if RStudio crashes during script
+outdir <- cmd_args[1] # "/Users/nunen/Documents/Metab/test_set"
+run_name <- cmd_args[2] # run_name <- "Test_run_5"
+z_score <- as.numeric(cmd_args[3]) # calculate Z-scores or not? If no Z-scores, then no violin plots
+dims_matrix <- cmd_args[4] # "DBS"
 
-split <- TRUE
-shorter <- 0 # shorter list of patients
+w <- 0.01 # seconds that system waits in between steps. Remove on HPC?
+
+# The list of parameters can be shortened for HPC. Leave for now.
 check.lists <- FALSE # check the lists of metabolites
 rest <- FALSE
 top <- 5 # number of diseases that score highest in algorithm to plot
 threshold_IEM = 5 # probability score cut-off for plotting the top diseases
 ratios_cutoff = -5 # z-score cutoff of axis on the left for top diseases
 
+# Settings from config.R
+# binary variable: run function, yes(1) or no(0). Can be removed at later stage
+algorithm = 1
+ratios = 1
+violin = 1
+# replace with: if (z_score == 1) { algorithm <- ratios <- violin <- 1 } ? Or omit?
+# integer: are the sample names headers on row 1 or row 2 in the DIMS excel? (default 1)
+header_row = 1
+# column name where the data starts (default B)
+col_start = "B"
+zscore_cutoff = 5
+xaxis_cutoff = 20
 
-#############################
-########## STEP # 0 #########      load config settings
-#############################
-sink(file="log.txt")
-source("config.R")
-start_time <- Sys.time()
-cat(paste0("Running dIEM violin pipeline, start time: \t",start_time,"\n"))
+# source functions; check command later.
+# source("/Users/mraves2/Development/dIEM/dIEM/functions/*.R")
+source("/hpc/dbg_mz/production/DIMS/pipeline/scripts/AddOnFunctions/other_isobaric.R")
+source("/hpc/dbg_mz/production/DIMS/pipeline/scripts/AddOnFunctions/make_plots.R")
+
+
+#### STEP 0  load config settings ####  
+# sink(file="dIEM_log.txt") # create log file in run.sh
+
+# path to DIMS excel file
+# path_DIMSfile = "/Users/ihoek3/Documents/dIEM/voorbeeld_PL_Diagn17_RUN10.xlsx"
+path_DIMSfile = paste0(outdir, "/", run_name, ".xlsx") # ${outdir} in run.sh
+
+# path: output folder 
+# path_output = "/Users/ihoek3/Documents/dIEM/output"
+path_output = output_dir = paste0(outdir, "/dIEM_refactored") # change to dIEM later
+dir.create(path_output, showWarnings = F) # remove either path_output or output_dir later
+
+# directory: folder in which all metabolite lists are (.txt)
+# path_txtfiles = "/Volumes/LAB/metab/Untargeted Metabolomics/Algoritme/dIEM/dIEM-main/stofgroups"
+# path_txtfiles = "/Users/mraves2/Development/dIEM/dIEM/metabolite_groups"
+path_txtfiles = "/hpc/dbg_mz/tools/db/metabolite_groups"
+### for algorithm step 4
+# path_expected = "/Volumes/LAB/metab/Untargeted Metabolomics/Algoritme/dIEM/dIEM-main/data/Expected_version20191108_CSV.csv"
+# path_expected = "/Users/mraves2/Metabolomics/dIEM-main/data/Expected_version20191108_CSV.csv"
+path_expected = "/hpc/dbg_mz/tools/db/dIEM/Expected_version2020_CSV.csv"
+### for ratios step 3
+# path_ratios = "/Volumes/LAB/metab/Untargeted Metabolomics/Algoritme/dIEM/dIEM-main/data/Ratios_20191108_CSV.csv"
+# path_ratios = "/Users/mraves2/Metabolomics/dIEM-main/data/Ratios_20230220_CSV.csv"
+path_ratios = "/hpc/dbg_mz/tools/db/ratios/Ratios_20210216_CSV.csv"
+
+# where do print and cat statements go on HPC?
 if (exists("run_name")) {
   cat("\nThe config file is succesfully loaded from working directory.")
 } else {
@@ -49,26 +92,8 @@ if (exists("run_name")) {
 }
 
 
-#############################
-########## STEP # 1 #########      Preparation
-############################# in: run_name, path_DIMSfile, header_row ||| out: output_dir, DIMS
-#############################
-# create new output folder and set as output directory.
-dir.create(file.path(path_output, run_name))
-output_dir <- paste0(path_output,"/",run_name)
-able_to_copy <- file.copy("config.R",output_dir)
-if (able_to_copy) {
-  cat(paste0("\nconfig file successfully copied to:\n -> ",output_dir))
-} else {
-  # If the config file could not be copied, the run name probably already exists.
-  cat("\n---- Warning: please use a new run name for every run. Now, a time-stamp is added to the runname. \n")
-  # Thus, add timestamp to run name.
-  run_name <- paste0(run_name,"_",gsub("CET","",gsub(" |-|:", "",Sys.time())))
-  dir.create(file.path(path_output, run_name))
-  output_dir <- paste0(path_output,"/",run_name)
-  able_to_copy <- file.copy("config.R",output_dir)
-  cat(paste0("\nconfig file successfully copied to ",output_dir," = ",able_to_copy))
-}
+#### STEP 1: Preparation #### 
+# in: run_name, path_DIMSfile, header_row ||| out: output_dir, DIMS
 
 # Load the excel file.
 dimsxls <- readWorkbook(xlsxFile = path_DIMSfile, sheet = 1, startRow = header_row)
@@ -77,24 +102,17 @@ if (exists("dimsxls")) {
 } else {
   cat(paste0("\n\n**** Error: Could not find an excel file. Please check if path to excel file is correct in config.R:\n -> ",path_DIMSfile,"\n"))
 }
-beep("coin")
 
 Sys.sleep(w)
-#############################
-########## STEP # 2 #########      Edit DIMS data 
-############################# in: DIMSxls ||| out: Data, nrcontr, nrpat
-#############################
-# It edits a few column names, removes irrelevant columns.
-# Input: 
-# The xlsx file that comes out of the pipeline (v.2.0.0) with format:
-# [plots] [C] [P] [summary columns] [C_Zscore] [P_Zscore]
 
-# Output: 
-# dims2 dataframe 
-# "_CSV.csv" file that is suited for the algorithm in shiny.
+#### STEP 2: Edit DIMS data #####      
+# in: DIMSxls ||| out: Data, nrcontr, nrpat
+# Input: the xlsx file that comes out of the pipeline with format:
+# [plots] [C] [P] [summary columns] [C_Zscore] [P_Zscore]
+# Output: "_CSV.csv" file that is suited for the algorithm in shiny.
 
 dims2 <- dimsxls
-# Calculate the number of C's and P's in column names to extract the following numbers:
+# Calculate the number of Cs and Ps in column names to extract the following numbers:
 nrcontr <- length(grep("C",names(dims2)))/2   # Number of control samples
 nrpat <- length(grep("P",names(dims2)))/2     # Number of patient samples
 if (nrcontr + nrpat != length(grep("_Zscore", names(dims2)))) {
@@ -110,33 +128,21 @@ if (!is.na(dims2[1,3])){ # in case the excel had no empty "plots" column
 } else {
   dims2 <- subset( dims2, select = -c( name : pathway ))[-3] 
 }
-# Rename the columns from..to..
-names(dims2) <- gsub("avg.ctrls", "Mean_controls", gsub("sd.ctrls", "SD_controls", names(dims2) ) )
-names(dims2) <- gsub("HMDB_code", "HMDB.code", gsub("HMDB_name", "HMDB.name", names(dims2) ) )
+# Rename the columns 
+names(dims2) <- gsub("avg.ctrls", "Mean_controls", names(dims2))
+names(dims2) <- gsub("sd.ctrls",  "SD_controls", names(dims2))
+names(dims2) <- gsub("HMDB_code", "HMDB.code", names(dims2))
+names(dims2) <- gsub("HMDB_name", "HMDB.name", names(dims2))
 
 #first, select the intensity columns by all cols minus nrsamples
 nrsamples = nrcontr + nrpat
+# start of the section with Z-scores
 beginZscores = ncol(dims2) - nrsamples
+# intensity columns and mean and standard deviation of controls
 i <- c(3:(nrsamples+2))
 #change the intensities to numeric values
 dims2[, i] <- sapply(dims2[, i], as.numeric)
 
-
-
-if (shorter==1){
-  pos_ctr <- 13 # number of positive ctrs that are between controls and patients in df
-  number_patients <- 15 # number of patients that are sampled
-  dims2 <- dims2[,c(1:2,
-                    3:(nrcontr+2), 
-                    (3+nrcontr+pos_ctr):(2+ nrcontr +pos_ctr+number_patients),
-                    (3+ nrcontr +nrpat):(4+ 2*nrcontr +nrpat),
-                    (5+ 2*nrcontr +nrpat+pos_ctr):(4+ 2*nrcontr +nrpat+ pos_ctr +number_patients)
-                    
-  )] #(5+ 2*nrcontr + 2*pos_ctr +number_patients):(4+ 2*nrcontr + 2*pos_ctr + 2*number_patients)
-  nrcontr <- length(grep("C",names(dims2)))/2   # Number of control samples
-  nrpat <- length(grep("P",names(dims2)))/2     # Number of patient samples
-  i <- c(3:(nrsamples+2))
-}
 if (exists("dims2") & (length(dims2)<length(dimsxls))) {
   cat("\n### Step 2 # Edit dims data is done.\n")
 } else {
@@ -144,117 +150,116 @@ if (exists("dims2") & (length(dims2)<length(dimsxls))) {
 }
 #cat("### Step 2 # Edit dims data is done.\n")
 
-
 Sys.sleep(w)
-#############################
-########## STEP # 3 #########      Calculate ratios
-############################# in: ratios, path_ratios, dims2, nrcontr, nrpat ||| out: Zscore (+file)
-############################# 
+
+#### STEP 3: Calculate ratios ####      
+# in: ratios, path_ratios, dims2, nrcontr, nrpat ||| out: Zscore (+file)
 # This script loads the file with Ratios (path_ratios) and calculates 
 # the ratios of the intensities of the given metabolites. It also calculates
-# Zscores based on the avg and sd of the ratios of the controls.
+# Zs-cores based on the avg and sd of the ratios of the controls.
 
-# Input:
-# The dataframe with intenstities and Zscores of controls and patients:
+# Input: dataframe with intenstities and Zscores of controls and patients:
 # [HMDB.code] [HMDB.name] [C] [P] [Mean_controls] [SD_controls] [C_Zscore] [P_Zscore]
 
-# Output:
-# "_CSV.csv" file that is suited for the algorithm, with format:
+# Output: "_CSV.csv" file that is suited for the algorithm, with format:
 # "_Ratios_CSV.csv" file, same file as above, but with ratio rows added.
+
 dims3 <- dims2
-if (ratios == 1) { # ratios in settings is 1
-  cat(paste0("\nloading ratios file:\n ->  ",path_ratios,"\n"))
-  RatioInput<-read.csv(path_ratios,sep=';',stringsAsFactors=FALSE)
+if (ratios == 1) { # should be default
+  cat(paste0("\nloading ratios file:\n ->  ", path_ratios, "\n"))
+  RatioInput <- read.csv(path_ratios, sep=';', stringsAsFactors=FALSE)
   
   # Prepare empty data frame to fill with ratios
-  Ratios<-setNames(data.frame(matrix(ncol=ncol(dims3),nrow=nrow(RatioInput))),colnames(dims3))
-  Ratios[,1:2]<-RatioInput[,1:2]
-  ### idea: test without 10 log , look into expected for ratios
-  for (controls in c(3:(nrcontr+2),(nrcontr+3):(nrcontr+nrpat+2))) {
-    Ratios[1,controls]<- log2(dims3[which(dims3[,1]=='HMDB00159'),controls]/dims3[which(dims3[,1]=='HMDB00158'),controls])
-    Ratios[2,controls]<- log2(dims3[which(dims3[,1]=='HMDB00161'),controls]/dims3[which(dims3[,1]=='HMDB00182'),controls])
-    Ratios[3,controls]<- log2(dims3[which(dims3[,1]=='HMDB00161'),controls]/
-                                (dims3[which(dims3[,1]=='HMDB00159'),controls]+dims3[which(dims3[,1]=='HMDB00158'),controls]))
-    Ratios[4,controls]<- log2(dims3[which(dims3[,1]=='HMDB00062'),controls]/
-                                (dims3[which(dims3[,1]=='HMDB00222'),controls]+dims3[which(dims3[,1]=='HMDB00848'),controls]))
-    Ratios[5,controls]<- log2((dims3[which(dims3[,1]=='HMDB00222'),controls]+dims3[which(dims3[,1]=='HMDB05065'),controls])
-                              /dims3[which(dims3[,1]=='HMDB00201'),controls])
-    Ratios[6,controls]<- log2(dims3[which(dims3[,1]=='HMDB02014'),controls]/dims3[which(dims3[,1]=='HMDB00201'),controls])
-    Ratios[7,controls]<- log2(dims3[which(dims3[,1]=='HMDB00791'),controls]/dims3[which(dims3[,1]=='HMDB00201'),controls])
-    Ratios[8,controls]<- log2(dims3[which(dims3[,1]=='HMDB13127'),controls]/dims3[which(dims3[,1]=='HMDB00201'),controls])
-    Ratios[9,controls]<- log2(dims3[which(dims3[,1]=='HMDB00064'),controls]/dims3[which(dims3[,1]=='HMDB00562'),controls])
-    Ratios[10,controls]<- log2(dims3[which(dims3[,1]=='HMDB00824'),controls]/dims3[which(dims3[,1]=='HMDB00696'),controls])
-    Ratios[11,controls]<- log2(dims3[which(dims3[,1]=='HMDB00159'),controls]/
-                                 (dims3[which(dims3[,1]=='HMDB00824'),controls]+dims3[which(dims3[,1]=='HMDB00222'),controls]))
-    Ratios[12,controls]<- log2(dims3[which(dims3[,1]=='HMDB00118'),controls]/dims3[which(dims3[,1]=='HMDB00763'),controls])
-    Ratios[13,controls]<- log2(dims3[which(dims3[,1]=='HMDB01325'),controls]/dims3[which(dims3[,1]=='HMDB06831'),controls])
-    Ratios[14,controls]<- log2(dims3[which(dims3[,1]=='HMDB00791'),controls]/dims3[which(dims3[,1]=='HMDB00651'),controls])
-    Ratios[15,controls]<- log2(dims3[which(dims3[,1]=='HMDB00824'),controls]/dims3[which(dims3[,1]=='HMDB00201'),controls])
-    Ratios[16,controls]<- log2((dims3[which(dims3[,1]=='HMDB00226'),controls]+dims3[which(dims3[,1]=='HMDB00296'),controls]+dims3[which(dims3[,1]=='HMDB00300'),controls])
-                               /dims3[which(dims3[,1]=='HMDB00904'),controls])
-    Ratios[17,controls]<- log2(dims3[which(dims3[,1]=='HMDB01257'),controls]/dims3[which(dims3[,1]=='HMDB01256'),controls])
+  Ratios <- setNames(data.frame(matrix(ncol=ncol(dims3), 
+                                       nrow=nrow(RatioInput))), colnames(dims3))
+
+  # put HMDB info into first two columns
+  Ratios[ ,1:2] <- RatioInput[ ,1:2]
+
+  # use ratios with or without log2? For now, keep both.
+  Ratios_log <- Ratios
+  # look for intensity columns (exclude Zscore columns)
+  control_cols <- grep("C", colnames(Ratios)[1:which(colnames(Ratios) == "Mean_controls")])
+  patient_cols <- grep("P", colnames(Ratios)[1:which(colnames(Ratios) == "Mean_controls")])
+  intensity_cols <- c(control_cols, patient_cols)
+  # calculate each of the ratios
+  for (ratio_index in 1:nrow(RatioInput)) {
+    ratio_numerator   <- RatioInput[ratio_index, "HMDB_numerator"] 
+    ratio_numerator   <- strsplit(ratio_numerator, "plus")[[1]]
+    ratio_denominator <- RatioInput[ratio_index, "HMDB_denominator"] 
+    ratio_denominator <- strsplit(ratio_denominator, "plus")[[1]]
+    # find these HMDB IDs in dataset. Could be a sum of multiple metabolites
+    sel_denominator <- sel_numerator <- c()
+    for (len in 1:length(ratio_numerator)) { 
+      sel_numerator <- c(sel_numerator, which(dims3[ , "HMDB.code"] == ratio_numerator[len])) 
+    }
+    for (len in 1:length(ratio_denominator)) { 
+      sel_denominator <- c(sel_denominator, which(dims3[ , "HMDB.code"] == ratio_denominator[len])) 
+    }
+    # calculate ratio
+    Ratios[ratio_index, intensity_cols] <- apply(dims3[sel_numerator, intensity_cols], 2, sum) /
+      apply(dims3[sel_denominator, intensity_cols], 2, sum)
+    # calculate log of ratio
+    Ratios_log[ratio_index, intensity_cols]<- log2(Ratios[ratio_index, intensity_cols])
   }
   
-  # Calc means and SD's of the calculated ratios, add them in 2 columns in ratio df.
-  for (calc in 1:nrow(Ratios)) {
-    Ratios[calc,(nrcontr+nrpat+3)]<-mean(as.numeric(Ratios[calc,3:(nrcontr+2)]))
-    Ratios[calc,(nrcontr+nrpat+4)]<-sd(as.numeric(Ratios[calc,3:(nrcontr+2)]))
-  }
+  # Calculate means and SD's of the calculated ratios, add them in 2 columns in ratio df.
+  Ratios[ , "Mean_controls"] <- apply(Ratios[ , control_cols], 1, mean)
+  Ratios[ , "SD_controls"]   <- apply(Ratios[ , control_cols], 1, sd)
+  Ratios_log[ , "Mean_controls"] <- apply(Ratios_log[ , control_cols], 1, mean)
+  Ratios_log[ , "SD_controls"]   <- apply(Ratios_log[ , control_cols], 1, sd)
   
   # Calc z-scores with the means and SD's 
-  for (Zscores in (nrcontr+nrpat+5):(2*(nrcontr+nrpat)+4)) {
-    for (rows in 1:nrow(Ratios)) {
-      Ratios[rows,Zscores]<-(Ratios[rows,(Zscores-nrcontr-nrpat-2)]-Ratios[rows,(nrcontr+nrpat+3)])/Ratios[rows,(nrcontr+nrpat+4)]
-    }
+  zscore_cols <- grep("Zscore", colnames(Ratios))
+  for (zscore_col in zscore_cols) {
+    # matching intensity column; add the two columns for mean and sd when calculating Z-scores
+    int_col <- zscore_col - (nrsamples + 2) 
+    # add unit test 
+    test_that("column names are the same", {
+      expect_equal(paste0(colnames(Ratios)[int_col], "_Zscore"), colnames(Ratios)[zscore_col])
+    })
+    # calculate Z-scores
+    Ratios[ , zscore_col] <- (Ratios[ , int_col] - Ratios[ , "Mean_controls"]) / Ratios[ , "SD_controls"]
+    Ratios_log[ , zscore_col] <- (Ratios_log[ , int_col] - Ratios_log[ , "Mean_controls"]) / Ratios_log[ , "SD_controls"]
   }
   
   # Add rows of the ratio hmdb codes to the data of zscores from the pipeline.
-  Combined<-rbind.data.frame(Ratios,dims3)
+  dims4 <- rbind(Ratios, dims3)
+  dims4_log <- rbind(Ratios_log, dims3)
   
   # Select only the cols with zscores of only the patients (Zscore)
-  Zscore <- Combined[,c(1:2,(2*nrcontr+nrpat+5):(2*(nrcontr+nrpat)+4))]
+  Zscore <- dims4[, c(1, 2, zscore_cols[grep("P", colnames(dims4)[zscore_cols])])]
+  Zscore_log <- dims4_log[, c(1, 2, zscore_cols[grep("P", colnames(dims4)[zscore_cols])])]
   # And with the controls
-  Zscore_all <- Combined[,c(1:2,(nrcontr+nrpat+5):(2*(nrcontr+nrpat)+4))]
-  write.table(Zscore,file=paste(output_dir,"/inputshiny_",run_name,"_CSV.csv",sep=""),quote=FALSE,sep=";",row.names=FALSE)
-  
-  # check whether Zscore and Zscore_all are as expected: implies success of calc ratios
-  if (exists("Combined") & (length(Zscore)<length(Zscore_all))) {
-    cat("\n### Step 3 # Calculate ratios is done.\n")
-  } else {
-    cat("\n**** Error: Could not calculate ratios. Check if path to ratios-file is correct in config.R. \n")
-  }
-  
-  if (low_memory == 1) {
-    rm(Zscore_all,dims2,dims3,dimsxls)
-  }
+  Zscore_all <- dims4[ , c(1, 2, zscore_cols)]
+  Zscore_all_log <- dims4_log[ , c(1, 2, zscore_cols)]
+
 }
 
 Sys.sleep(w)
-#############################
-########## STEP # 4 #########      Run the algorithm
-############################# in: algoritm, path_expected, Zscore ||| out: ProbScore0 (+file)
-#############################
 
+#### STEP 4: Run the algorithm #########      
+# in: algoritm, path_expected, Zscore ||| out: ProbScore0 (+file)
 
 # Zscore <- ObsZscore
-if (algorithm == 1){
+if (algorithm == 1) {
   # Load data
-  cat(paste0("\nloading expected file:\n ->  ",path_expected,"\n"))
-  Expected<-read.csv(path_expected,sep=';',stringsAsFactors=FALSE)
+  cat(paste0("\nloading expected file:\n ->  ", path_expected, "\n"))
+  Expected <- read.csv(path_expected,sep=';',stringsAsFactors=FALSE)
   
   # prepare dataframe scaffold Rank
   Rank <- Zscore
   r <- nrow(Rank)
   # Fill df Rank with the ranks for each patient
-  for (patients in 3:ncol(Zscore)) {
+  for (patient in 3:ncol(Zscore)) {
     # number of positive zscores in patient
-    pos <- length(Zscore[patients][(Zscore[patients]>0)==TRUE])
+    pos <- length(Zscore[patient][(Zscore[patient] > 0) == TRUE])
     # sort the column on zscore
-    Rank <- Rank[order(-Rank[patients]),]
+    Rank <- Rank[order(-Rank[patient]), ]
     # Rank all positive zscores highest to lowest
-    Rank[1:pos,patients]<-as.numeric(ordered(-Rank[1:pos,patients]))
+    Rank[1:pos, patient] <- as.numeric(ordered(-Rank[1:pos, patient]))
     # Rank all negative zscores lowest to highest
-    Rank[(pos+1):r,patients]<-as.numeric(ordered(Rank[(pos+1):r,patients]))
+    Rank[(pos+1):r, patient] <- as.numeric(ordered(Rank[(pos+1):r, patient]))
   }
   
   # Calculate metabolite score, using the dataframes with only values, and later add the cols without values (1&2).
@@ -311,449 +316,176 @@ if (algorithm == 1){
     cat("\n**** Error: Could not run algorithm. Check if path to Expected csv-file is correct in config.R. \n")
   }
   
-  if (low_memory == 1) {
-    rm(Rank, Exp_Metabscore,Exp_Rank,Exp_Zscores,Exp_Zscores0,ProbScore,dup,uni,Wscore,Ratios)
-  }
   rm(wb)
 }
 Sys.sleep(w)
 
 
+#### STEP 5: Make violin plots #####      
+# in: algorithm / Zscore, violin, nrcontr, nrpat, Data, path_textfiles, zscore_cutoff, xaxis_cutoff, top_diseases, top_metab, output_dir ||| out: pdf file
 
+# object Data is nowhere to be found.
+# if ( algorithm == 0 ) {
+#   Zscore <- Data[,c(1:2,(2*nrcontr+nrpat+5):(2*(nrcontr+nrpat)+4))]                                                         
+# }
 
-
-#############################
-########## STEP # 5 #########      Make violin plots
-############################# in: algorithm / Zscore, violin, nrcontr, nrpat, Data, path_textfiles, zscore_cutoff, xaxis_cutoff, top_diseases, top_metab, output_dir ||| out: pdf file
-#############################
-other_isobaric <- function(metab.list,infile, check.lists){
-  same.mass <- Combined[c(1,2,(nrpat+nrcontr+5))]
-  if (ncol(metab.list)>2){
-    cat("alarmvalues")
-  } else { 
-    names(same.mass) <- c("HMDB_code","HMDB_name","zscore")
-    metab.list.int <- left_join(metab.list, same.mass, by = "HMDB_code")
-    if (check.lists) {
-      write.xlsx(metab.list.int, paste0(output_dir,"/check_", infile, ".xlsx"))
-    }
-    isobaric.metab.list <- unique(left_join(metab.list.int, same.mass, by = "zscore", keep = FALSE)[ , c(5,6)])
-    names(isobaric.metab.list) <- c("HMDB_code", "HMDB_name")
-    isobaric.rest <- anti_join(isobaric.metab.list, metab.list, by='HMDB_code')
-    isobaric.rest <- isobaric.rest[order(isobaric.rest$HMDB_name, na.last = NA), ]
-    isobaric.rest$HMDB_name <- lapply(isobaric.rest$HMDB_name, function(x) {gsub("^", "qqqzzz", x, perl = TRUE)})
-    isobaric.rest[, 2] <- sapply(isobaric.rest[, 2], as.character)
-    return(isobaric.rest)
-  }
-}
-if ( algorithm == 0 ){
-  Zscore <- Data[,c(1:2,(2*nrcontr+nrpat+5):(2*(nrcontr+nrpat)+4))]                                                         
-}
-if (violin == 1) {
+if (violin == 1) { # make violin plots
   isobarics_txt <- c()
-  #Edit the DIMS output Zscores of all patients in format:
+  # Edit the DIMS output Zscores of all patients in format:
   # HMDB_code patientname1  patientname2
-  names(Zscore) <- gsub("HMDB.code","HMDB_code", gsub("HMDB.name", "HMDB_name", names(Zscore)) )
+  names(Zscore) <- gsub("HMDB.code","HMDB_code", names(Zscore))
+  names(Zscore) <- gsub("HMDB.name", "HMDB_name", names(Zscore))
   summed_nonames <- Zscore[-2] # remove the HMDB.name column
   summed <- Zscore
   if (check.lists) {
     summed.c <- Zscore
   }
+  # remove the string "_Zscore" from columnnames
   names(summed) <- gsub("_Zscore", "", names(summed)) # remove the _Zscore from columnnames
   
   # Make a patient list so it can be looped over later in lapply.
   patient_list <- names(summed)[-2]
-  patient_list[1] <- "alle"
+  patient_list[1] <- "all"
   # add list for IEM plots 
-  patient_list2 <- gsub("alle_IEM","alle_volle_x-as",paste0(patient_list, "_IEM"))
-  patient_list <- c(patient_list, patient_list2)
+  patient_list2 <- gsub("all_IEM", "all_volle_x-as", paste0(patient_list, "_IEM"))
+  
+  # keep these two patient lists separate
+  # patient_list <- c(patient_list, patient_list2) # otherwise the result is too complicated:
+  # [1]  "all"               "P1002.1"           "P1003.1"           "P1005.2"           "P2021M04435.1"    
+  # [6]  "P2021M04781.1"     "P2021M05527.1"     "P2021M05533.1"     "P2021M05536.1"     "P2021M05538.1"    
+  # [11] "P2021M05543.1"     "P2021M05546.1"     "P2021M05552.1"     "P2021M05570.1"     "P2021M05622.1"    
+  # [16] "P2021M05629.1"     "P2021M05633.1"     "P2021M05637.1"     "P2021M05640.1"     "P2021M05644.1"    
+  # [21] "P2021M05647.1"     "P2021M05658.1"     "P2021M05663.1"     "alle_volle_x-as"   "P1002.1_IEM"      
+  # [26] "P1003.1_IEM"       "P1005.2_IEM"       "P2021M04435.1_IEM" "P2021M04781.1_IEM" "P2021M05527.1_IEM"
+  # [31] "P2021M05533.1_IEM" "P2021M05536.1_IEM" "P2021M05538.1_IEM" "P2021M05543.1_IEM" "P2021M05546.1_IEM"
+  # [36] "P2021M05552.1_IEM" "P2021M05570.1_IEM" "P2021M05622.1_IEM" "P2021M05629.1_IEM" "P2021M05633.1_IEM"
+  # [41] "P2021M05637.1_IEM" "P2021M05640.1_IEM" "P2021M05644.1_IEM" "P2021M05647.1_IEM" "P2021M05658.1_IEM"
+  # [46] "P2021M05663.1_IEM"
+  
+  # from table Expected, choose columns "Disease", "HMDB.code", "Metabolite" and "Isobaric_Compounds_Names"
+  Expected_red <- Expected[ ,c(5,14,13,18)]
+  Expected_red <- Expected_red[!duplicated(Expected_red[,c(1,2)]),]
+  names(Expected_red) <- gsub("HMDB.code", "HMDB_code",  names(Expected_red))  
+  names(Expected_red) <- gsub("Metabolite", "HMDB_name", names(Expected_red))
+  
   
   # Find all text files in the given folder, which contain metabolite lists of which
   # each file will be a page in the pdf with violin plots.
-  stofgroup_files <- list.files(path=path_txtfiles, pattern="*.txt", full.names=FALSE, recursive=FALSE)
-  metab.list0 <- list()
-  index = 0
-  cat("making plots from the input files:")
-  # open the text files and add each to a list of dataframes (metab.list0)
-  for (infile in stofgroup_files) {
-    index = index + 1
-    metab.list1 <- unique(read.table(paste0(path_txtfiles,"/",infile), sep = "\t", header = TRUE, quote=""))
-    isos <- other_isobaric(metab.list1,infile, check.lists)
-    metab.list1 <- rbind(metab.list1, isos)
-    metab.list0[[index]] <- metab.list1
-    cat(paste0("\n",infile))
-  }
-  cat("\n")
-  Expected_red <- Expected[,c(5,14,13,18)]
-  Expected_red <- Expected_red[!duplicated(Expected_red[,c(1,2)]),]
-  names(Expected_red) <- gsub("HMDB.code", "HMDB_code", gsub("Metabolite", "HMDB_name", names(Expected_red) ) )  
-  
-  if (rest) {
-    # reduce the columns from the expected df for further use and remove double 
-    # metabolites per disease.
-    Expected_rest <- Expected_red[!duplicated(Expected_red[,2]),][,c(2,3)]
-    # Remove the metab-list from the expected df.
-  
-    cc = 0
-    for (metab.list in metab.list0){
-      if (ncol(metab.list) > 2) {
-        metab.list4 <- metab.list
-        metab.list <- metab.list[c(1,2)]
-      }
-      Expected_rest <- anti_join(Expected_rest, metab.list, by='HMDB_code')
-      # when checking metabolite lists is needed 
-      stoftest <- gsub(".txt","",stofgroup_files[cc]) # (string) stoftest name
-      if (check.lists) {
-        cc = cc + 1
-        joined.c <- inner_join(metab.list, summed.c, by = "HMDB_code")
-        check <- joined.c[,c(1:4)]
-        write.xlsx(check, paste0(output_dir,"/", stoftest, "_check.xlsx"))
-      }
-    }
-    
-    index = index + 1 
-    metab.list0[[index]] <- Expected_rest
-    stofgroup_files[index] <- "rest_automatic"
-  }
-  # voeg additionele lijsten toe, rest, de top 20 hoogst scorende en top 10 laagst.
-  
+  # Make a PDF file for each of the categories in metabolite_dirs
+  metabolite_dirs <- list.files(path=path_txtfiles, full.names=FALSE, recursive=FALSE)
+  for (metabolite_dir in metabolite_dirs) {
+    # create a directory for the output PDFs
+    pdf_dir <- paste(output_dir, metabolite_dir, sep="/")
+    dir.create(pdf_dir)
+    metabolite_files <- list.files(path=paste(path_txtfiles, metabolite_dir, sep="/"), pattern="*.txt", full.names=FALSE, recursive=FALSE)
 
-  metab.list0[[index+1]] <- summed[c(1:20),c(1,2)]
-  stofgroup_files[index+1] <- "top20_hoogst"
-  metab.list0[[index+2]] <- summed[c(1:10),c(1,2)]
-  stofgroup_files[index+2] <- "top10_laagst"
-
-  
-  make_plots <- function(metab.list,stoftest,pt,zscore_cutoff,xaxis_cutoff,ThisProbScore,ratios_cutoff, ptcount) {
-    stoftest <- as.character(stoftest)
-    if (ncol(metab.list) > 2) {
-      # metab list are the alarm values, so reduce the data frame to 2 columns and save metab.list4
-      metab.list4 <- metab.list
-      metab.list <- metab.list[c(1,2)]
-    }
-    # extract the top 20 highest and top 10 lowest scoring metabolites
-    if (startsWith(stoftest, "top") & ptcount > 1) {
-      if (endsWith(stoftest, "hoogst")){
-        topX <- unique(summed[pt]) %>% slice_max(unique(summed[pt]),n = 20)
-        topX <- inner_join(topX, summed[,c(1,2,(ptcount+1))], by = pt)
-      } else {
-        topX <- unique(summed[pt]) %>% slice_min(unique(summed[pt]),n = 10)
-        topX <- inner_join(topX, summed[,c(1,2,(ptcount+1))], by = pt)
-      }
-      count = 0
-      listrm <- c()
-      b <- 100000.00000
-      for (rows in c(1:nrow(topX))) {
-        a <- topX[rows,1]
-        if (a==b) { count = count + 1 }
-        else { count = 0 }
-        if (count >= 6) { listrm <- c(listrm, rows) }
-        b <- a 
-      }
-      if (length(listrm) > 0) { 
-        metab.list <- topX[-(listrm),-1]
-        isos <- other_isobaric(metab.list,"infile",FALSE)
-        metab.list <- rbind(metab.list, isos)
-      } else {
-        metab.list <- topX[-1]
-      }
-      # replace the metab.list dataframe with new values
-      #metab.list <- topX[-1]
+    # put all metabolites into one list
+    metab_list_all <- list()
+    index = 0
+    cat("making plots from the input files:")
+    # open the text files and add each to a list of dataframes (metab.list0)
+    for (infile in metabolite_files) {
+      index = index + 1
+      metab.list1 <- read.table(paste(path_txtfiles, metabolite_dir, infile, sep="/"), sep = "\t", header = TRUE, quote="")
+      isos <- other_isobaric(dims4, metab.list1, infile, check.lists) # puts qqqzzz before every HMDB_name
+      metab.list2 <- rbind(metab.list1, isos)
+      metab_list_all[[index]] <- metab.list2
+      cat(paste0("\n", infile))
+    } 
+    # cat("\n")
       
-    }
-    count <- 0
-    for (metab in metab.list$HMDB_name){
-      count <- count + 1 
-      metab.list$HMDB_name[count] <- gsub("(.{45})", "\\1...;", metab, perl = TRUE)
-    }
-    # Filter summed on the metabolites of interest (moi)
-    joined <- inner_join(metab.list, summed[-2], by = "HMDB_code")
-    moi <- joined[,-2]
-    j <- joined[,-1]
-    jm <- reshape2::melt(j, id.vars = "HMDB_name")
-    #jmo <- jm[ rev(order(match(jm$HMDB_name, joined$HMDB_name))), ]
-    jma <- aggregate(HMDB_name ~ value+variable, jm, paste0, collapse = "_")
-    jmas <- jma %>% separate(HMDB_name, into = c("HMDB_name", "isobar"), sep="_",extra = "merge", fill = "right")
-    jmaso <- jmas[ rev(order(match(jmas$HMDB_name, joined$HMDB_name))), ]
-    jmao <- jmaso %>% unite(HMDB_name,c("HMDB_name","isobar"),sep="_", na.rm = TRUE)
-    #enters <- max(lengths(regmatches(jmao$HMDB_name, gregexpr(";|_", jma$HMDB_name))))
-    jmao$HMDB_name <- gsub(';|_','\n',jmao$HMDB_name)
-    jmao$HMDB_name <- factor(jmao$HMDB_name, levels=unique(jmao$HMDB_name))
-    if (check.lists & (pt=="alle")) {
-      write.xlsx(jmaso, paste0(output_dir,"/", stoftest, "_check2.xlsx"))
-    }
+    # if (rest) { # MPR: not sure what this does; check later.
+    #   # reduce the columns from the expected df for further use and remove double 
+    #   # metabolites per disease.
+    #   Expected_rest <- Expected_red[!duplicated(Expected_red[,2]),][,c(2,3)]
+    #   # Remove the metab-list from the expected df.
+    # 
+    #   cc = 0
+    #   for (metab.list in metab.list0){
+    #     if (ncol(metab.list) > 2) {
+    #       metab.list4 <- metab.list
+    #       metab.list <- metab.list[c(1,2)]
+    #     }
+    #     Expected_rest <- anti_join(Expected_rest, metab.list, by='HMDB_code')
+    #     # when checking metabolite lists is needed 
+    #     stoftest <- gsub(".txt","",stofgroup_files[cc]) # (string) stoftest name
+    #     if (check.lists) {
+    #       cc = cc + 1
+    #       joined.c <- inner_join(metab.list, summed.c, by = "HMDB_code")
+    #       check <- joined.c[,c(1:4)]
+    #       write.xlsx(check, paste0(output_dir,"/", stoftest, "_check.xlsx"))
+    #     }
+    #   }
+    #   
+    #   index = index + 1 
+    #   metab.list0[[index]] <- Expected_rest
+    #   stofgroup_files[index] <- "rest_automatic"
+    # }
     
-    # Split the metabolite lists from isobaric compounds
+    # voeg additionele lijsten toe, rest, de top 20 hoogst scorende en top 10 laagst.
+    # leave out for now. List summed is not sorted, so why take the top 20?
+    # metab.list0[[index+1]] <- summed[c(1:20),c(1,2)]
+    # stofgroup_files[index+1] <- "top20_hoogst"
+    # metab.list0[[index+2]] <- summed[c(1:10),c(1,2)]
+    # stofgroup_files[index+2] <- "top10_laagst"
     
-    isos <- jmao %>% separate(HMDB_name, into = c("HMDB_name", "isobar"), sep="zzz",extra = "merge", fill = "right")
-    b <- "yellow"
-    count <- 0
-    for (rownr in c(nrow(isos):1)) {
-      a <- isos[rownr,4]
-      if (!identical(a,b) & !is.na(a)) {
-        count <- count + 1
-      }
-      isos[rownr,4] <- gsub("^", paste0(count,": "), isos[rownr,4], perl = TRUE)
-      isos[rownr,3] <- gsub("\nqqq", paste0('^',count), isos[rownr,3], perl = TRUE) 
-      b <- a
-    }
-
-    moi_m <- isos[,c(1:3)]
-    moi_m$HMDB_name <- factor(moi_m$HMDB_name, levels=unique(moi_m$HMDB_name))
-    footn <- isos[,4]
-    footnu <- unique(footn[!is.na(footn)])
-    footnus <- gsub("...\n", "", gsub("\nqqqzzz", "; ", footnu), perl = FALSE)
-    for (i in c(1:length(footnus))){
-      footnus[i] <- gsub("(.{120})", "\\1\n", gsub(":", ":\t", footnus[i]), perl = TRUE)
-    }
-    footnus <- footnus[length(footnus):1]
-    if (pt=="alle") {
-      isobarics_txt <<- c(isobarics_txt,"\n_____________________________________",stoftest,"\n",footnus)
-    }
-
-    namelist <- as.vector(unique(moi_m$HMDB_name))
-    nrows <- length(namelist)
-    if (ThisProbScore!=0) {
-      stoftest.chunks <- list(moi_m)
-    }
-    if (split) {
-      subSetSizes <- 15:30
-      remainders <- nrows %% subSetSizes 
-      minIndexes <- which(remainders == min(remainders))
-      chunkSize <- max(subSetSizes[minIndexes])
-      numberlists = nrows / chunkSize 
-      moi_m.chunks <- list()
-      b = 0
-      c = 0
-      stoftest.chunks <- c()
-      for (index in c(1:numberlists)) { 
-        b = c + 1
-        stoftest.chunks <- c(stoftest.chunks,paste0(stoftest,"_",index))
-        if (index==1){ a <- chunkSize+min(remainders)} else {a <- chunkSize}
-        c = b + a - 1
-        selectrow <- namelist[b:c]
-        moi_m_cut <- moi_m[moi_m$HMDB_name %in% as.vector(namelist[b:c]),]
-        moi_m.chunks[[index]] <- moi_m_cut
-      }
-      # reverse order of lists. 
-      moi_m.chunks <- moi_m.chunks[length(moi_m.chunks):1]  
-    }
-    for (moi_m in moi_m.chunks) {
-      i_tot <- length(unique(moi_m$HMDB_name))
-      enters <- max(lengths(regmatches(unique(moi_m$HMDB_name), gregexpr("\n", unique(moi_m$HMDB_name)))))
-      # adjust size for the font of y-axis labels and plotted dot sizes
-      if (enters > 3) {
-        fontsize1 <- -0.25*enters +1.75
-      } else {
-        fontsize1 <- 1
-      }
-      if (i_tot>15) {
-        fontsize2 <- -0.02*i_tot + 1.30
-        circlesize <- -0.013*i_tot + 1.26
-      } else {
-        fontsize2 <- 1
-        circlesize <- 1
-      }
-      if (enters*i_tot>45){
-        fontsize3 <- -0.006*(enters*i_tot) + 1.25
-      } else {
-        fontsize3 <- 1
-      }
-      #print(c(fontsize1, fontsize2, fontsize3, (enters*i_tot)))
-      fontsize <- min(c(fontsize1, fontsize2, fontsize3))
-      if (fontsize < 0.2) { fontsize <- 0.2 }
-      if (circlesize < 0.3) { circlesize <- 0.3 }
-      # make selection of scores higher than the cut-off that will be colored according
-      # to their values. They will be plotted according to their values in moi_m
-      group_highZ <- moi_m %>%
-        group_by(value) %>% 
-        filter(value > zscore_cutoff) %>%
-        ungroup()
-      # change all values above the xaxis cutoff to the cut-off value. So that
-      # all plotted data is within a shorter range on the x-axis.
-      moi_m_max20 <- moi_m
-      moi_m_max20$value <- as.numeric(lapply(moi_m$value, function(x) ifelse(x > xaxis_cutoff, as.numeric(xaxis_cutoff), x)))
-      # Because the range of diagnostic ratios is often far below zero, change all
-      # values below the xaxis cutoff to the cut-off value to prevent a very long
-      # x-axis in the plots with other metabolites (in IEM plots).
-      moi_m_max20$value <- as.numeric(lapply(moi_m_max20$value, function(x) ifelse(x < ratios_cutoff, as.numeric(ratios_cutoff), x)))
+    # set parameters for plots
+    n <- 0
+    i_tot <- 24
+    plot_height <- 0.40 * i_tot
+    plot_width <- 6
+    
+    # build list of patients, replaced with clearer construction
+    # First loop: no IEM plots
+    for (pt_nr in 1:length(patient_list)) {
+      pt <- patient_list[pt_nr]
+      # normal violin plots:
+      ThisProbScore = 0 # means that this is no IEM plot
+      cat(paste0("\n","For ", pt, ", done with plot nr. "))
       
-      # Get values that overlap with highZ and max20: i.e. 5 < z < 20
-      group_highZ_max20 <- moi_m_max20 %>%
-        group_by(value) %>% 
-        filter(value > zscore_cutoff) %>%
-        ungroup()
-      
-      if (stoftest=="0_alarmwaardes" & ThisProbScore==0 & ptcount > 1){
-        # This will be front page with alarmvalues, no plots.
-        # pt <- patient_list[3]
-        # metab.list4 <- metab.list0[[1]]
-        cat(pt)
-        alarm <- inner_join(metab.list4, summed[,c("HMDB_code", pt)], by = "HMDB_code")
-        colnames(alarm)[5] <- "zscore"
-        #alarm$zscore <- as.numeric(round(alarm$zscore, 2))
-        alarm$zscore[which(alarm$soort_grens=="onder")] <- as.numeric(lapply(alarm$zscore[which(alarm$soort_grens=="onder")], function(x) ifelse(x < alarm$alarmwaarde[which(alarm$zscore==x)], x, 0)))
-        alarm$zscore[which(alarm$soort_grens=="boven")] <- as.numeric(lapply(alarm$zscore[which(alarm$soort_grens=="boven")], function(x) ifelse(x > alarm$alarmwaarde[which(alarm$zscore==x)], x, 0)))
+      if (startsWith(pt,"all")){
+        # overview plots
+        pdf(paste0(pdf_dir,"/", pt, "_patients_overview.pdf"), onefile = TRUE,
+            width = plot_width, height = plot_height) # create the PDF device
+      } else {
+        # patient plots
+        pdf(paste0(pdf_dir, "/", pt, ".pdf"), onefile = TRUE,
+            width = plot_width, height = plot_height) # create the PDF device
       }
       
-      if (!startsWith(pt,"all")){
-        # patient one by one
-        pt <- gsub("_IEM", "", pt)
-        pt_colname <- pt
-        # get values from patient
-        pt_data <- moi_m[which(moi_m$variable==pt_colname),]
-        pt_data_max20 <- moi_m_max20[which(moi_m_max20$variable==pt_colname),]
-        pt_values <- pt_data$value
-        
-        colors <- c("#22E4AC", "#00B0F0", "#504FFF","#A704FD","#F36265","#DA0641")
-        #             green     blue      blue/purple purple    orange    red
-        if (ThisProbScore==0 & !startsWith(stoftest,"top") & ptcount > 1){
-          if (stoftest=="0_alarmwaardes"){
-            plot.new()
-            zeroes <- which(alarm$zscore!=0)
-            if (length(zeroes)==0) {
-              text(x=.5, y=.95, paste0("Dit zijn de alarmwaardes voor patient:\n\n",pt), font=1, cex=1, col="#F48024")
-              text(x=.5, y=.85, paste0("Geen afwijkende waardes"), font=1, cex=1, col="#000000")
-            } else {
-              alarm <- alarm[zeroes,]
-              find_cell <- function(table, row, col, name="core-fg"){
-                l <- table$layout
-                which(l$t==row & l$l==col & l$name==name)
-              }
-              alarm <- alarm[-1]
-              alarm_table <- tableGrob(alarm)
-              #color_this <- which(alarm$zscore!=0)
-              #color_this <- ""
-              high <- which(alarm$zscore!=0 & alarm$soort_grens=="boven")
-              low <- which(alarm$zscore!=0 & alarm$soort_grens=="onder")
-              # if (length(color_this)!=0){
-              #   for (i in color_this){
-              #     ind <- find_cell(alarm_table, i+1, 5, "core-bg")
-              #     alarm_table$grobs[ind][[1]][["gp"]] <- gpar(fill="darkolivegreen1", col = "darkolivegreen4",fontface="bold", lwd=3)
-              #   }
-              #   
-              # }
-              if (length(high)!=0){
-                for (i in high){
-                  ind <- find_cell(alarm_table, i+1, 5, "core-bg")
-                  alarm_table$grobs[ind][[1]][["gp"]] <- gpar(fill="#f2cdd7", col = colors[6],fontface="bold", lwd=3)
-                }
-              }
-              if (length(low)!=0){
-                for (i in low){
-                  ind <- find_cell(alarm_table, i+1, 5, "core-bg")
-                  alarm_table$grobs[ind][[1]][["gp"]] <- gpar(fill="#bcf6e6", col = colors[1],fontface="bold", lwd=3)
-                }
-              }
-              text(x=.5, y=.95, paste0("Dit zijn de alarmwaardes voor patient:\n\n",pt), font=1, cex=1, col="#F48024")  # first 2 numbers are xy-coordinates within [0, 1]
-              #text(x=.1, y=.8, paste0("Bovengrens:"), font=1, cex=0.5)  # first 2 numbers are xy-coordinates within [0, 1]
-              grid.draw(alarm_table)
-            }
-            
-
-          } else {
-            # plot each stofgroup
-            g <- ggplot(moi_m_max20, aes(x=value, y=HMDB_name))+
-              theme(axis.text.y=element_text(size=rel(fontsize)), plot.caption = element_text(size=rel(fontsize)))+
-              geom_violin(scale="width")+
-              geom_point(data = pt_data_max20, aes(color=pt_data$value),size = 3.5*circlesize,shape=21, fill="white")+
-              geom_jitter(data = group_highZ_max20, aes(color=group_highZ$value), size = 1.3*circlesize, position = position_dodge(1.5))+ #,colour = "#3592b7" 
-              scale_fill_gradientn(colors = colors,values = NULL,space = "Lab",na.value = "grey50",guide = "colourbar",aesthetics = "colour")+
-              labs(x = "Z-scores",y = "Metabolites",title = paste0("Results for patient ",pt), subtitle = stoftest, color = "z-score", caption = "Voor voetnoot zie 'isobarics.txt'")+
-              geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)+
-              geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
-            print(g)
-          }
-        }
-        if (ThisProbScore==0 & startsWith(stoftest,"top") & ptcount > 1){
-          # the top20 & top10 plots
-          g <- ggplot(moi_m, aes(x=value, y=HMDB_name, color = value))+
-            theme(axis.text.y=element_text(size=rel(fontsize)))+
-            geom_violin(scale="width")+
-            geom_point(data = pt_data, aes(color=pt_data$value),size = 3.5*circlesize,shape=21, fill="white")+
-            geom_jitter(data = group_highZ, aes(color=group_highZ$value), size = 1.3*circlesize, position = position_dodge(1.5))+ #,colour = "#3592b7" 
-            scale_fill_gradientn(colors = colors,values = NULL,space = "Lab",na.value = "grey50",guide = "colourbar",aesthetics = "colour")+
-            labs(x = "Z-scores",y = "Metabolites",title = paste0("Results for patient ",pt), subtitle = stoftest, color = "z-score")+
-            geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)+
-            geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
-          #the plot without x-axis constraints
-          print(g)
-          
-        }
-        if (ThisProbScore > 0){
-          # plot the metabolites of the top 5 IEMs
-          g <- ggplot(moi_m_max20, aes(x=value, y=HMDB_name, color = value))+
-            theme(axis.text.y=element_text(size=rel(fontsize)))+
-            geom_violin(scale="width")+
-            geom_point(data = pt_data_max20, aes(color=pt_data$value),size = 3.5*circlesize,shape=21, fill="white")+
-            geom_jitter(data = group_highZ_max20, aes(color=group_highZ$value), size = 1.3*circlesize, position = position_dodge(1.5))+ #,colour = "#3592b7" 
-            scale_fill_gradientn(colors = colors,values = NULL,space = "Lab",na.value = "grey50",guide = "colourbar",aesthetics = "colour")+
-            labs(x = "Z-scores",y = "Metabolites",title = paste0("Algorithm results for patient ",pt), subtitle = paste0("Disease: ",stoftest,"\nProbability Score = ",format(round(ThisProbScore, 2), nsmall = 2)), color = "z-score")+
-            geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)+
-            geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
-          print(g)
-        }
-        
+      for (metab_list_nr in 1:length(metab_list_all)) {
+        # c = c + 1
+        metabolite_class <- gsub(".txt","", metabolite_files[metab_list_nr]) # (string) stoftest name
+        metab_list <- metab_list_all[[metab_list_nr]]
+        # send to function
+        make_plots(metab_list, metabolite_class, pt, zscore_cutoff, xaxis_cutoff, ThisProbScore, ratios_cutoff, pt_nr)
+        # if (c%%1==0){
+        cat(paste0(metab_list_nr, " "))
+        # }
       }
-      opencircle <- FALSE
-      gradient <- FALSE
-      # overview plots
-      if (pt=="alle" & !startsWith(stoftest, "top") & !(stoftest=="0_alarmwaardes")){
-        #overview plot with zscores of max 20 on the x-axis
-        g <- ggplot(moi_m_max20, mapping = aes(x=value, y=HMDB_name))+
-          theme(axis.text.y=element_text(size=rel(fontsize)))+
-          geom_violin(scale="width")+
-          {if(opencircle) geom_point(data = pt_data_max20, aes(color=pt_data$value),size = 3.5*circlesize,shape=21, fill="white")} +
-          geom_jitter(data = group_highZ_max20,aes(color = group_highZ$variable), size = 2.5*circlesize, position = position_dodge(0.8))+ 
-          {if (gradient) scale_fill_gradientn(colors = colors,values = NULL,space = "Lab",na.value = "grey50",guide = "colourbar",aesthetics = "colour")} +
-          labs(x = "Z-scores",y = "Metabolites",title = "Overview plot", subtitle = stoftest, color = "patients")+
-          geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)+
-          geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
-        
-        #delete_layers(g, "GeomText")
-        print(g)
-      }
-      if (pt=="alle_volle_x-as" & !startsWith(stoftest, "top") & !(stoftest=="0_alarmwaardes")){
-        #overview plot without x-axis constraints
-        g <- ggplot(moi_m, mapping = aes(x=value, y=HMDB_name))+
-          theme(axis.text.y=element_text(size=rel(fontsize)))+
-          geom_violin(scale="width")+
-          geom_jitter(data = group_highZ,aes(color = group_highZ$variable), size = 2.5*circlesize, position = position_dodge(0.8))+ 
-          labs(x = "Z-scores",y = "Metabolites",title = "Overview plot", subtitle = stoftest, color = "patients")+
-          geom_vline(xintercept = 2, col = "grey", lwd = 0.5,lty=2)+
-          geom_vline(xintercept = -2, col = "grey", lwd = 0.5,lty=2)
-        print(g)
-      }
-    }
-    #return(isobarics_txt)
-  }
-  
-  
-  n <- 0
-  i_tot <- 24
-  plot_height <- 0.40 * i_tot
-  plot_width <- 6
-  ptcount <- 0
-  lapply(patient_list, function(pt) {
-    # for each patient, go into the for loop for as many text files there are.
-    c = 0
-    if (ptcount <= nrpat) {
-      ptcount <<- ptcount + 1
-    } else {
-      ptcount <<- 0
-    }
+      print(paste0("patientnr: ", pt_nr)) # remove later
+      
+      k <- dev.off()
+      
+    } # end for patient in first for-loop
     
-    # IEM violin plots:
-    if (endsWith(pt,"_IEM")) {
-      n <<- n + 1
-      cat(paste0("n",n))
+    # Second loop: IEM plots
+    for (pt_nr in 1:length(patient_list2)) {
+      pt <- patient_list2[pt_nr]
       top_IEM <- c()
       ProbScore_top_IEM <- c()
       integer_list <- c(1:top)
-      # Select the metabolites that are associated with the top 5 highest scoring IEM, for each patient
-      IEMs <- disRank[disRank[[n+1]] %in% integer_list,][[1]]
+      # Select the metabolites that are associated with the top highest scoring IEM, for each patient
+      # disRank is from step 4: the algorithm. The lower the value, the more likely.
+      IEMs <- disRank[disRank[[(pt_nr+1)]] %in% integer_list, ][[1]] # why +1? First column is Disease
+      
+      #### NB: this goes wrong, disRank has 22 columns for 21 patients, while patient_list has 23 patients ####
+      # this object is generated in step 4 (algorithm)
+      # add check on column name and patient name, they should match. Is that a unit test?
+      
       for (IEM in IEMs) {
-        ProbScore_IEM <- ProbScore0[which(ProbScore0$Disease==IEM),(n+1)]
-        if (ProbScore_IEM>=threshold_IEM){
+        ProbScore_IEM <- ProbScore0[which(ProbScore0$Disease==IEM), (pt_nr+1)]
+        if (ProbScore_IEM >= threshold_IEM){
           top_IEM <- c(top_IEM, IEM)
           ProbScore_top_IEM <- c(ProbScore_top_IEM, ProbScore_IEM)
         }
@@ -763,74 +495,145 @@ if (violin == 1) {
       #If ProbScore_top_IEM is an empty list, don't continue to make_plots.
       if (length(top_IEM)==0){
         # If no Prob scores were above set threshold (5), send to log file
-        cat(paste0("\n\n**** Note that this patient had no ProbScores higher than ",threshold_IEM,". Therefore, this pdf was not made:\t ",pt,"_top0 \n"))
+        cat(paste0("\n\n**** Note that this patient had no ProbScores higher than ", threshold_IEM,". 
+                   Therefore, this pdf was not made:\t ",pt,"_top0 \n"))
       } else {
         # make plots of top 5 diseases
-        cat(paste0("\n","For ",pt,", done with plot nr. "))
-        pdf(paste0(output_dir,"/", pt, "_top" , l , ".pdf"),onefile = TRUE,
+        cat(paste0("\n", "For ", pt,", done with plot nr. "))
+        pdf(paste0(pdf_dir,"/", pt, "_top" , l , ".pdf"), onefile = TRUE,
             width = plot_width, height = plot_height) # create the PDF device
         # Sorting from high to low, both ProbScore_top_IEM as well as top_IEM.
         ind <- order(-ProbScore_top_IEM)
-        ProbScore_top_IEM_s <- ProbScore_top_IEM[ind]
-        top_IEM_s <- top_IEM[ind]
+        ProbScore_top_IEM_sorted <- ProbScore_top_IEM[ind]
+        top_IEM_sorted <- top_IEM[ind]
         # getting metabolites for each top_IEM disease exactly like in metab.list0
-        dis_list <- Expected_red[Expected_red$Disease %in% top_IEM_s,]
-        dis_list <- setDT(dis_list, key = "Disease")[top_IEM_s]
+        dis_list <- Expected_red[Expected_red$Disease %in% top_IEM_sorted,]
+        dis_list <- setDT(dis_list, key = "Disease")[top_IEM_sorted]
         dis_list$Disease <- factor(dis_list$Disease, levels=unique(dis_list$Disease))
         #disnames <- unique(dis_list$Disease)
-        dis_list0 <- split(dis_list, f = dis_list$Disease)
-        d = 0
+        dis_list_all <- split(dis_list, f = dis_list$Disease)
+        # d = 0
         # forloop over metab.list0 homolog
-        for (dis in dis_list0){
-          d = d + 1
-          
+        for (dis_nr in 1:length(dis_list_all)) {
+          # d = d + 1
+          dis <- dis_list_all[[dis_nr]] # lots of duplicate info in dis
           disease <- as.character(dis[[1]][1]) # same as stoftest for normal plots
-          dis <- dis[,-c(1,4)] # same as metab.list in normal plots
-          #names(dis) <- gsub("HMDB.code", "HMDB_code", gsub("Metabolite", "HMDB_name", names(dis) ) )
-          ThisProbScore <- ProbScore_top_IEM_s[d]
+          dis <- dis[ , -c(1,4)] # same as metab.list in normal plots
+          ThisProbScore <- ProbScore_top_IEM_s[dis_nr]
           #cat(paste0("d  ",d,"\n",disease,"\t",ThisProbScore))
-          make_plots(dis,disease,pt,zscore_cutoff,xaxis_cutoff,ThisProbScore,ratios_cutoff,0)
+          make_plots(dis, disease, pt, zscore_cutoff, xaxis_cutoff, ThisProbScore, ratios_cutoff, 0)
         }
-        check.lists <- FALSE
-        k <- dev.off()
-      }
-      
-    } else {
-      
-      # normal violin plots:
-      cat(paste0("\n","For ",pt,", done with plot nr. "))
-      
-      if (startsWith(pt,"all")){
-        # overview plots
-        pdf(paste0(output_dir,"/", pt, "_patienten_overview.pdf"),onefile = TRUE,
-            width = plot_width, height = plot_height) # create the PDF device
-      } else {
-        # patient plots
-        pdf(paste0(output_dir,"/", pt, ".pdf"),onefile = TRUE,
-            width = plot_width, height = plot_height) # create the PDF device
-      }
-      
-      for (metab.list in metab.list0){
-        ThisProbScore = 0 # means that this is no IEM plot
-        c = c + 1
-        stoftest <- gsub(".txt","",stofgroup_files[c]) # (string) stoftest name
-
-        # send to function
-        make_plots(metab.list, stoftest, pt, zscore_cutoff, xaxis_cutoff,ThisProbScore,ratios_cutoff,ptcount)
-        if (c%%1==0){
-          cat(paste0(c," "))
-        }
-      }
-      print(paste0("patientnr: ",ptcount))
-      
       k <- dev.off()
-    }
+      } # end make plots 
+      
+    } # end for patient in second for-loop
     
-  }
-  )
-  writeLines(isobarics_txt,paste0(path_output,"/",run_name,"/isobarics.txt"), sep = "\n")
-  outputfiles <- list.files(path=paste0(path_output,"/",run_name), pattern="*.pdf", full.names=FALSE, recursive=FALSE)
-  if (exists("stofgroup_files") & exists("metab.list1") & (length(outputfiles)>=(nrpat+2))) {
+  } # end for metabolite_dir
+  
+} # end if violin = 1
+      
+# original code for violin plots:
+      # ptcount <- 0
+      # lapply(patient_list, function(pt) {
+      #   # for each patient, go into the for loop for as many text files there are.
+      #   c = 0
+      #   if (ptcount <= nrpat) {
+      #     ptcount <<- ptcount + 1
+      #   } else {
+      #     ptcount <<- 0
+      #   }
+      #   
+      #   # IEM violin plots:
+      #   if (endsWith(pt, "_IEM")) {
+      #     n <<- n + 1
+      #     cat(paste0("n",n))
+      #     top_IEM <- c()
+      #     ProbScore_top_IEM <- c()
+      #     integer_list <- c(1:top)
+      #     # Select the metabolites that are associated with the top 5 highest scoring IEM, for each patient
+      #     IEMs <- disRank[disRank[[n+1]] %in% integer_list,][[1]]
+      #     for (IEM in IEMs) {
+      #       ProbScore_IEM <- ProbScore0[which(ProbScore0$Disease==IEM),(n+1)]
+      #       if (ProbScore_IEM>=threshold_IEM){
+      #         top_IEM <- c(top_IEM, IEM)
+      #         ProbScore_top_IEM <- c(ProbScore_top_IEM, ProbScore_IEM)
+      #       }
+      #     }
+      #     l <- length(top_IEM)
+      #     
+      #     #If ProbScore_top_IEM is an empty list, don't continue to make_plots.
+      #     if (length(top_IEM)==0){
+      #       # If no Prob scores were above set threshold (5), send to log file
+      #       cat(paste0("\n\n**** Note that this patient had no ProbScores higher than ",threshold_IEM,". Therefore, this pdf was not made:\t ",pt,"_top0 \n"))
+      #     } else {
+      #       # make plots of top 5 diseases
+      #       cat(paste0("\n","For ",pt,", done with plot nr. "))
+      #       pdf(paste0(pdf_dir,"/", pt, "_top" , l , ".pdf"), onefile = TRUE,
+      #           width = plot_width, height = plot_height) # create the PDF device
+      #       # Sorting from high to low, both ProbScore_top_IEM as well as top_IEM.
+      #       ind <- order(-ProbScore_top_IEM)
+      #       ProbScore_top_IEM_s <- ProbScore_top_IEM[ind]
+      #       top_IEM_s <- top_IEM[ind]
+      #       # getting metabolites for each top_IEM disease exactly like in metab.list0
+      #       dis_list <- Expected_red[Expected_red$Disease %in% top_IEM_s,]
+      #       dis_list <- setDT(dis_list, key = "Disease")[top_IEM_s]
+      #       dis_list$Disease <- factor(dis_list$Disease, levels=unique(dis_list$Disease))
+      #       #disnames <- unique(dis_list$Disease)
+      #       dis_list0 <- split(dis_list, f = dis_list$Disease)
+      #       d = 0
+      #       # forloop over metab.list0 homolog
+      #       for (dis in dis_list0){
+      #         d = d + 1
+      #         
+      #         disease <- as.character(dis[[1]][1]) # same as stoftest for normal plots
+      #         dis <- dis[,-c(1,4)] # same as metab.list in normal plots
+      #         #names(dis) <- gsub("HMDB.code", "HMDB_code", gsub("Metabolite", "HMDB_name", names(dis) ) )
+      #         ThisProbScore <- ProbScore_top_IEM_s[d]
+      #         #cat(paste0("d  ",d,"\n",disease,"\t",ThisProbScore))
+      #         make_plots(dis,disease,pt,zscore_cutoff,xaxis_cutoff,ThisProbScore,ratios_cutoff,0)
+      #       }
+      #       check.lists <- FALSE
+      #       k <- dev.off()
+      #     }
+      #     
+      #   } else {
+      #     
+      #     # normal violin plots:
+      #     cat(paste0("\n","For ",pt,", done with plot nr. "))
+      #     
+      #     if (startsWith(pt,"all")){
+      #       # overview plots
+      #       pdf(paste0(pdf_dir,"/", pt, "_patienten_overview.pdf"),onefile = TRUE,
+      #           width = plot_width, height = plot_height) # create the PDF device
+      #     } else {
+      #       # patient plots
+      #       pdf(paste0(pdf_dir,"/", pt, ".pdf"),onefile = TRUE,
+      #           width = plot_width, height = plot_height) # create the PDF device
+      #     }
+      #     
+      #     for (metab.list in metab.list0){
+      #       ThisProbScore = 0 # means that this is no IEM plot
+      #       c = c + 1
+      #       stoftest <- gsub(".txt","",stofgroup_files[c]) # (string) stoftest name
+      #       
+      #       # send to function
+      #       make_plots(metab.list, stoftest, pt, zscore_cutoff, xaxis_cutoff,ThisProbScore,ratios_cutoff,ptcount)
+      #       if (c%%1==0){
+      #         cat(paste0(c," "))
+      #       }
+      #     }
+      #     print(paste0("patientnr: ",ptcount))
+      #     
+      #     k <- dev.off()
+      #   }
+      # }
+      # ) # end of lapply
+      
+
+  # wrap up:
+  writeLines(isobarics_txt, paste0(path_output, "/", run_name, "/isobarics.txt"), sep = "\n")
+  outputfiles <- list.files(path=paste0(path_output, "/", run_name), pattern="*.pdf", full.names=FALSE, recursive=FALSE)
+  if (exists("stofgroup_files") & exists("metab.list1") & (length(outputfiles) >= (nrpat+2))) {
     cat("\n\n### Step 5 # Make the violin plots is done. \n")
   } else {
     cat("\n\n**** Error: Could not make all violin plots or output folder already existed. pdf's made: \n")
